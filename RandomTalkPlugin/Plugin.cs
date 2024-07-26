@@ -6,6 +6,7 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using RandomTalkPlugin.Windows;
 using RandomTalkPlugin.CommandTracker;
+using RandomTalkPlugin.Lottery;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Dalamud.Logging;
 using Dalamud.Game.Text;
@@ -13,7 +14,6 @@ using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
 using System;
 using System.Runtime.InteropServices;
-using Dalamud.Game.Text;
 using static System.Net.Mime.MediaTypeNames;
 using Dalamud.Plugin.Ipc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
@@ -21,6 +21,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using System.Threading.Channels;
+using System.Collections.Generic;
 
 
 namespace RandomTalkPlugin
@@ -33,19 +34,21 @@ namespace RandomTalkPlugin
         
 
         private const string CommandName = "/randomtalk";
+        private const string SetGiftCommandName = "/setgift";
         public static RandomTalkPlugin Instance;
         public Configuration Configuration { get; init; }
         public IChatGui ChatGui { get; init; }
 
         public readonly WindowSystem WindowSystem = new("RandomTalkPlugin");
-        private ConfigWindow ConfigWindow { get; init; }
-        private MainWindow MainWindow { get; init; }
+        private LotteryWindows LotteryWindows { get; init; }
         private RadomCommandHelper CommandTracker { get; init; }
+        private LotterydHelper LotteryHelper { get; init; }
+        private LotterydSaver LotterySaver { get; init; }
+        public PluginUI PluginUI { get; init; }
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr ParseMessageDelegate(IntPtr a, IntPtr b);
         private readonly Hook<ParseMessageDelegate> parseMessageHook;
         private delegate void MacroCallDelegate(RaptureShellModule* raptureShellModule, RaptureMacroModule.Macro* macro);
-        private readonly XivChatType ownRollType = (XivChatType)2122;
         public enum DeathRollChatTypes : ushort
         {
             // Random
@@ -63,51 +66,51 @@ namespace RandomTalkPlugin
             // you might normally want to embed resources and load them from the manifest stream
             var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
 
-            ConfigWindow = new ConfigWindow(this);
-            MainWindow = new MainWindow(this, goatImagePath);
             CommandTracker = new RadomCommandHelper();
-
-            WindowSystem.AddWindow(ConfigWindow);
-            WindowSystem.AddWindow(MainWindow);
+            LotteryHelper = new LotterydHelper();
+            LotterySaver = new LotterydSaver();
+            this.PluginUI = new PluginUI(this);
 
             CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
             {
                 HelpMessage = "A useful message to display in /xlhelp"
             });
             this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
+            this.ChatGui.ChatMessage += Chat_OnFreeCompanyMessage;
             // PluginLog.Information(CommandTracker.GetRandomCommandRes());
 
             PluginInterface.UiBuilder.Draw += DrawUI;
-
-            // This adds a button to the plugin installer entry of this plugin which allows
-            // to toggle the display status of the configuration ui
-            PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUI;
-
-            // Adds another button that is doing the same but for the main ui of the plugin
-            PluginInterface.UiBuilder.OpenMainUi += ToggleMainUI;
+            PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
         }
 
         public void Dispose()
         {
             WindowSystem.RemoveAllWindows();
 
-            ConfigWindow.Dispose();
-            MainWindow.Dispose();
+            PluginInterface.UiBuilder.Draw -= DrawUI;
+            PluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUI;
 
             CommandManager.RemoveHandler(CommandName);
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
+            this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
         }
 
         private void OnCommand(string command, string args)
         {
             // in response to the slash command, just toggle the display status of our main ui
-            ToggleMainUI();
+            this.PluginUI.LotteryWindows.Visible = true;
         }
 
-        private void DrawUI() => WindowSystem.Draw();
+        private void DrawUI()
+        {
+            this.PluginUI.Draw();
+        }
 
-        public void ToggleConfigUI() => ConfigWindow.Toggle();
-        public void ToggleMainUI() => MainWindow.Toggle();
+        private void DrawConfigUI()
+        {
+            
+            this.PluginUI.LotteryWindows.Visible = true;
+        }
 
         private void Chat_OnRandomDiceMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
@@ -121,6 +124,37 @@ namespace RandomTalkPlugin
             
             var macro = RaptureMacroModule.Instance()-> GetMacro(1, 1);
             RaptureMacroModule.Instance()->SetMacroLines(macro, 0, &line);
+            RaptureShellModule.Instance()->ExecuteMacro(macro);
+        }
+
+        private void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        {
+            if (type != XivChatType.FreeCompany) return;
+            var name = sender.TextValue;
+            PluginLog.Information("name is: {0}, message is {1}, senderId is {2} ", name, message.TextValue, senderId.ToString());
+            var number = LotteryHelper.GetLotteryNumberRes(message);
+            if (number == "") return;
+            int intNum;
+            bool success = int.TryParse(number, out intNum);
+            if (!success) {
+                PluginLog.Error("The Number can't not parse to int: {0}", number);
+                return;
+            }
+            PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ", name, number, senderId.ToString());
+            var (giftSender, giftName) = LotterySaver.GetGift(intNum, name);
+            string talkStr1, talkStr2;
+            talkStr1 = "/wait 2";
+            if (giftSender == "") {          
+                talkStr2 = "/fc " + name + "选择的是" + number + "号，但是礼物库中没有此号码，请重新选择！";
+
+            } else {
+                talkStr2 = "/fc " +  name + "选择的是" + number + "号，他抽中来自" + giftSender + "的礼物：" + giftName + "！";
+            }
+            var line1 = new Utf8String(talkStr1);
+            var line2 = new Utf8String(talkStr2);
+            var macro = RaptureMacroModule.Instance()->GetMacro(1, 0);
+            RaptureMacroModule.Instance()->SetMacroLines(macro, 0, &line1);
+            RaptureMacroModule.Instance()->SetMacroLines(macro, 1, &line2);
             RaptureShellModule.Instance()->ExecuteMacro(macro);
         }
     }

@@ -16,19 +16,16 @@ using Dalamud.Plugin;
 using Lumina.Excel.GeneratedSheets;
 using Dalamud.Game.Text.SeStringHandling;
 using System.Runtime.CompilerServices;
-namespace RandomTalkPlugin.CommandTracker
+namespace RandomTalkPlugin.Lottery
 {
-
-
-    public class RadomCommandHelper
-    {
-        [PluginService]
-        private IPluginLog PluginLog { get; init; }
-        [PluginService]
-        private IChatGui Chat { get; init; }
-        public (string, string) GetRandomCommandRes(SeString message)
+    public class LotterydHelper
+    { 
+        public string GetLotteryNumberRes(SeString message)
         {          
-            return (message.TextValue.Split("掷出了")[0], message.TextValue.Split("掷出了")[1].Split("点")[0]);
+            if (message.TextValue.Contains("我选")) {
+                return message.TextValue.Split("我选")[1].Split("号")[0];
+            }
+            return "";
         }
     }
     

@@ -16,20 +16,43 @@ using Dalamud.Plugin;
 using Lumina.Excel.GeneratedSheets;
 using Dalamud.Game.Text.SeStringHandling;
 using System.Runtime.CompilerServices;
-namespace RandomTalkPlugin.CommandTracker
+using Dalamud.Logging;
+namespace RandomTalkPlugin.Lottery
 {
-
-
-    public class RadomCommandHelper
+    public class LotterydSaver
     {
-        [PluginService]
-        private IPluginLog PluginLog { get; init; }
-        [PluginService]
-        private IChatGui Chat { get; init; }
-        public (string, string) GetRandomCommandRes(SeString message)
-        {          
-            return (message.TextValue.Split("掷出了")[0], message.TextValue.Split("掷出了")[1].Split("点")[0]);
+        private Dictionary<int, (string, string)> giftDict = new Dictionary<int, (string,string)> { };
+        private Dictionary<(string, string),  string> giftDestinationDict = new Dictionary<(string, string), string> { };
+        public (string, string) GetGift(int number, string name)
+        {
+            if (giftDict.TryGetValue(number, out (string,string) value))
+            {
+
+                giftDestinationDict[value] = name;
+                giftDict.Remove(number);
+                return value;
+            }
+            return ("", "");
         }
+
+        public void SetGift(string name, string giftName)
+        {
+            giftDict[giftDict.Count + 1] = (name, giftName);
+            var shuffledNumbers = Enumerable.Range(1, giftDict.Count).OrderBy(x => Guid.NewGuid());
+            var valueList = giftDict.Values.ToList();
+            var tempDict = new Dictionary<int, (string, string)> { };
+            for (int i = 0; i < giftDict.Count; i++)
+            {
+                tempDict[shuffledNumbers.ElementAt(i)] = valueList[i];
+            }
+            giftDict = tempDict;
+            PluginLog.Information("Set Success");
+        }
+        public Dictionary<int, (string, string)> GetGiftGift(string name, string giftName) { return giftDict; }
+
+        public Dictionary<(string, string), string> GetDestinationGiftGift(string name, string giftName) { return giftDestinationDict; }
+
+
     }
     
 }
