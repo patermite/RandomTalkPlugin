@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="Dalamud.Plugin.Bootstrap.targets"/>
+  <Import Project="Dalamud.Plugin.Bootstrap.targets" />
 
   <PropertyGroup>
     <Version>0.0.0.1</Version>
     <Description>A sample plugin.</Description>
-    <PackageProjectUrl>https://github.com/goatcorp/SamplePlugin</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/goatcorp/RandomTalkPlugin</PackageProjectUrl>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <IsPackable>false</IsPackable>
+    <Configurations>Debug;Release;randomTalk</Configurations>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,4 +17,5 @@
       <Visible>false</Visible>
     </Content>
   </ItemGroup>
+  <ProjectExtensions><VisualStudio><UserProperties RandomTalkPlugin_1json__JsonSchema="https://alec016.github.io/Custom-Machinery/Json%20Schema/src/main/resources/schemas/custom_machinery_machine.json" /></VisualStudio></ProjectExtensions>
 </Project>
