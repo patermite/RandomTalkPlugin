@@ -30,12 +30,16 @@ namespace RandomTalkPlugin
     {
         [PluginService] internal static DalamudPluginInterface PluginInterface { get; private set; } = null!;
         [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
-        [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
-        
-
-        private const string CommandName = "/randomtalk";
-        private const string SetGiftCommandName = "/setgift";
+        public ICommandManager CommandManager { get; init; }
         public static RandomTalkPlugin Instance;
+
+        private const string CommandRadnomTalkName = "/randomtalk";
+        private const string CommandSetGiftOn = "/setgift";
+        private const string CommandSetGiftOff = "/unsetgift";
+        private const string CommandStartLotteryOn = "/startlottery";
+        private const string CommandStartLotteryOff= "/unstartlottery";
+        public bool SetGiftSwitch = false;
+        public bool StartLotterySwitch = false;
         public Configuration Configuration { get; init; }
         public IChatGui ChatGui { get; init; }
 
@@ -43,7 +47,8 @@ namespace RandomTalkPlugin
         private LotteryWindows LotteryWindows { get; init; }
         private RadomCommandHelper CommandTracker { get; init; }
         private LotterydHelper LotteryHelper { get; init; }
-        private LotterydSaver LotterySaver { get; init; }
+        private Talker Talker { get; init; }
+        public LotterydSaver LotterySaver { get; init; }
         public PluginUI PluginUI { get; init; }
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr ParseMessageDelegate(IntPtr a, IntPtr b);
@@ -56,11 +61,11 @@ namespace RandomTalkPlugin
             OtherRandomRoll = 8266, 
         }
 
-        public RandomTalkPlugin(IChatGui chatGui)
+        public RandomTalkPlugin(IChatGui chatGui, ICommandManager commandManager)
         {
-          
             Instance = this;
             this.ChatGui = chatGui;
+            this.CommandManager = commandManager;
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
 
             // you might normally want to embed resources and load them from the manifest stream
@@ -69,18 +74,33 @@ namespace RandomTalkPlugin
             CommandTracker = new RadomCommandHelper();
             LotteryHelper = new LotterydHelper();
             LotterySaver = new LotterydSaver();
+            Talker = new Talker(); 
             this.PluginUI = new PluginUI(this);
 
-            CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+            this.CommandManager.AddHandler(CommandRadnomTalkName, new CommandInfo(OnRandomTalkCommand)
             {
-                HelpMessage = "A useful message to display in /xlhelp"
+                HelpMessage = CommandRadnomTalkName + " can open the control window of the plugin"
+            });
+            this.CommandManager.AddHandler(CommandSetGiftOn, new CommandInfo(OnSetGiftCommandOn)
+            {
+                HelpMessage = CommandSetGiftOn + " can turn on the control of set gift function"
+            });
+            this.CommandManager.AddHandler(CommandSetGiftOff, new CommandInfo(OnSetGiftCommandOff)
+            {
+                HelpMessage = CommandSetGiftOff + " can turn off the control of set gift function "
+            });
+            this.CommandManager.AddHandler(CommandStartLotteryOn, new CommandInfo(OnStartLotteryCommandOn)
+            {
+                HelpMessage = CommandStartLotteryOn + " can turn on the control of lottery"
+            });
+            this.CommandManager.AddHandler(CommandStartLotteryOff, new CommandInfo(OnStartLotteryCommandOff)
+            {
+                HelpMessage = CommandStartLotteryOff + " can turn off the control of lottery"
             });
             this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
-            this.ChatGui.ChatMessage += Chat_OnFreeCompanyMessage;
             // PluginLog.Information(CommandTracker.GetRandomCommandRes());
-
+            PluginInterface.UiBuilder.OpenMainUi += DrawLotteryUI;
             PluginInterface.UiBuilder.Draw += DrawUI;
-            PluginInterface.UiBuilder.OpenConfigUi += DrawConfigUI;
         }
 
         public void Dispose()
@@ -88,17 +108,65 @@ namespace RandomTalkPlugin
             WindowSystem.RemoveAllWindows();
 
             PluginInterface.UiBuilder.Draw -= DrawUI;
-            PluginInterface.UiBuilder.OpenConfigUi -= DrawConfigUI;
+            PluginInterface.UiBuilder.OpenMainUi -= DrawLotteryUI;
 
-            CommandManager.RemoveHandler(CommandName);
+            CommandManager.RemoveHandler(CommandRadnomTalkName);
+            CommandManager.RemoveHandler(CommandSetGiftOn);
+            CommandManager.RemoveHandler(CommandSetGiftOff);
+            CommandManager.RemoveHandler(CommandStartLotteryOn);
+            CommandManager.RemoveHandler(CommandStartLotteryOff);
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
+            this.ChatGui.ChatMessage -= Chat_OnSayGiftMessage;
         }
 
-        private void OnCommand(string command, string args)
+        private void OnRandomTalkCommand(string command, string args)
         {
             // in response to the slash command, just toggle the display status of our main ui
-            this.PluginUI.LotteryWindows.Visible = true;
+            this.PluginUI.RandomTalkWindow.Visible = true;
+        }
+
+        private void OnSetGiftCommandOn(string command, string args)
+        {
+            if (SetGiftSwitch) {
+                return;
+            }
+
+            this.ChatGui.ChatMessage += Chat_OnSayGiftMessage;
+            SetGiftSwitch = true;
+            ChatGui.Print("Say gift set on sucess");
+        }
+
+        private void OnSetGiftCommandOff(string command, string args)
+        {
+            if (!SetGiftSwitch)
+            {
+                return;
+            }
+            this.ChatGui.ChatMessage -= Chat_OnSayGiftMessage;
+            SetGiftSwitch = false;
+            ChatGui.Print("Say gift set off sucess");
+        }
+
+        private void OnStartLotteryCommandOn(string command, string args)
+        {
+            if (StartLotterySwitch)
+            {
+                return;
+            }
+            this.ChatGui.ChatMessage += Chat_OnFreeCompanyMessage;
+            StartLotterySwitch = true;
+            ChatGui.Print("Start Lottery set on sucess");
+        }
+        private void OnStartLotteryCommandOff(string command, string args)
+        {
+            if (!StartLotterySwitch)
+            {
+                return;
+            }
+            this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
+            StartLotterySwitch = false;
+            ChatGui.Print("Start Lottery set off sucess");
         }
 
         private void DrawUI()
@@ -106,7 +174,7 @@ namespace RandomTalkPlugin
             this.PluginUI.Draw();
         }
 
-        private void DrawConfigUI()
+        private void DrawLotteryUI()
         {
             
             this.PluginUI.LotteryWindows.Visible = true;
@@ -127,7 +195,7 @@ namespace RandomTalkPlugin
             RaptureShellModule.Instance()->ExecuteMacro(macro);
         }
 
-        private void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        public void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             if (type != XivChatType.FreeCompany) return;
             var name = sender.TextValue;
@@ -141,21 +209,18 @@ namespace RandomTalkPlugin
                 return;
             }
             PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ", name, number, senderId.ToString());
-            var (giftSender, giftName) = LotterySaver.GetGift(intNum, name);
-            string talkStr1, talkStr2;
-            talkStr1 = "/wait 2";
-            if (giftSender == "") {          
-                talkStr2 = "/fc " + name + "选择的是" + number + "号，但是礼物库中没有此号码，请重新选择！";
-
-            } else {
-                talkStr2 = "/fc " +  name + "选择的是" + number + "号，他抽中来自" + giftSender + "的礼物：" + giftName + "！";
+            Talker.TalkInLotteryRes(intNum, name, number, LotterySaver);
+        }
+        public void Chat_OnSayGiftMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        {
+            if (type != XivChatType.Say) return;
+            var (name, giftName) = LotteryHelper.GetGiftRes(message);
+            if (name == "" || giftName == "") {
+                ChatGui.Print("设置礼物失败，礼物提供者：" + name + "， 礼物名：" + giftName);
+                return;
             }
-            var line1 = new Utf8String(talkStr1);
-            var line2 = new Utf8String(talkStr2);
-            var macro = RaptureMacroModule.Instance()->GetMacro(1, 0);
-            RaptureMacroModule.Instance()->SetMacroLines(macro, 0, &line1);
-            RaptureMacroModule.Instance()->SetMacroLines(macro, 1, &line2);
-            RaptureShellModule.Instance()->ExecuteMacro(macro);
+            LotterySaver.SetGift(name, giftName);
+            ChatGui.Print("设置礼物成功，礼物提供者：" + name + "， 礼物名：" + giftName);
         }
     }
 }

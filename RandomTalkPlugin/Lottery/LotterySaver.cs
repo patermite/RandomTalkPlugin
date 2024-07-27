@@ -17,6 +17,7 @@ using Lumina.Excel.GeneratedSheets;
 using Dalamud.Game.Text.SeStringHandling;
 using System.Runtime.CompilerServices;
 using Dalamud.Logging;
+using Newtonsoft.Json.Linq;
 namespace RandomTalkPlugin.Lottery
 {
     public class LotterydSaver
@@ -37,20 +38,16 @@ namespace RandomTalkPlugin.Lottery
 
         public void SetGift(string name, string giftName)
         {
-            giftDict[giftDict.Count + 1] = (name, giftName);
-            var shuffledNumbers = Enumerable.Range(1, giftDict.Count).OrderBy(x => Guid.NewGuid());
+            giftDict[giftDict.Count() + 1] = (name, giftName);
+            var shuffledNumbers = Enumerable.Range(1, giftDict.Count()).OrderBy(x => Guid.NewGuid());
             var valueList = giftDict.Values.ToList();
-            var tempDict = new Dictionary<int, (string, string)> { };
-            for (int i = 0; i < giftDict.Count; i++)
-            {
-                tempDict[shuffledNumbers.ElementAt(i)] = valueList[i];
-            }
+            Dictionary<int, (string,string)> tempDict = shuffledNumbers.Zip(valueList, (key, value) => new { key, value })
+                                          .ToDictionary(item => item.key, item => item.value);
             giftDict = tempDict;
-            PluginLog.Information("Set Success");
         }
-        public Dictionary<int, (string, string)> GetGiftGift(string name, string giftName) { return giftDict; }
+        public Dictionary<int, (string, string)> GetGiftDict() { return giftDict; }
 
-        public Dictionary<(string, string), string> GetDestinationGiftGift(string name, string giftName) { return giftDestinationDict; }
+        public Dictionary<(string, string), string> GetDestinationGiftGift() { return giftDestinationDict; }
 
 
     }

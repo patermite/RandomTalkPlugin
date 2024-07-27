@@ -18,7 +18,6 @@ namespace RandomTalkPlugin.CommandTracker
         public Talker Talker = new Talker{ };
         internal void RandomCommandTracker(RandomCommandTracker RandomCommandTracker)
         {
-            Talker.Talk();
         } 
     }
 }

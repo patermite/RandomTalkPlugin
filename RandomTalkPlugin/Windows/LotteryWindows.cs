@@ -1,3 +1,4 @@
+using Dalamud.Plugin.Services;
 using ImGuiNET;
 using System.Linq;
 using System.Numerics;
@@ -22,11 +23,16 @@ namespace RandomTalkPlugin.Windows
 
 
             ImGui.SetNextWindowSize(new Vector2(232, 75), ImGuiCond.FirstUseEver);
-            if (ImGui.Begin("Money log", ref this.visible))
+            if (ImGui.Begin("Lottery Controller", ref this.visible))
             {
-                if (ImGui.Button("Export to CSV"))
+                if (ImGui.Button("Print Gifts"))
                 {
-                   
+                    var giftDict = this.plugin.LotterySaver.GetGiftDict();
+                    foreach (var (_, (name,giftName)) in giftDict)
+                    {
+                        this.plugin.ChatGui.Print(name + "：" + giftName);
+                    }
+                    
                 }
                 
                 ImGui.EndChildFrame();

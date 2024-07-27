@@ -10,12 +10,15 @@ namespace RandomTalkPlugin
         private RandomTalkPlugin plugin;
 
         public LotteryWindows LotteryWindows { get; set; }
-       
+
+        public RandomTalkWindow RandomTalkWindow { get; set; }
+
         public PluginUI(RandomTalkPlugin plugin)
         {
             this.plugin = plugin;
 
             LotteryWindows = new LotteryWindows(plugin, this);
+            RandomTalkWindow = new RandomTalkWindow(plugin, this);
         }
 
         public void Dispose()
@@ -32,6 +35,7 @@ namespace RandomTalkPlugin
             // draw delegates as low as possible.
 
             LotteryWindows.Draw();
+            RandomTalkWindow.Draw();
         }
     }
 }
