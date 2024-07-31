@@ -26,7 +26,7 @@ public class RandomTalkWindow : Window, IDisposable
     {
         Configuration = new Configuration { ClusterSizeInHours = clusterSize };
         var movable = Configuration.IsConfigWindowMovable;
-        if (ImGui.Checkbox("Movable Config Window", ref movable))
+        if (ImGui.Checkbox("Random Talk", ref movable))
         {
 
         }

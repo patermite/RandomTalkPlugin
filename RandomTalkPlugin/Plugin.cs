@@ -22,13 +22,16 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using System.Threading.Channels;
 using System.Collections.Generic;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Globalization;
 
 
 namespace RandomTalkPlugin
 {
     public unsafe class RandomTalkPlugin : IDalamudPlugin
     {
-        [PluginService] internal static DalamudPluginInterface PluginInterface { get; private set; } = null!;
+        [PluginService] 
+        internal static DalamudPluginInterface PluginInterface { get; private set; } = null!;
         [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
         public ICommandManager CommandManager { get; init; }
         public static RandomTalkPlugin Instance;
@@ -38,23 +41,26 @@ namespace RandomTalkPlugin
         private const string CommandSetGiftOff = "/unsetgift";
         private const string CommandStartLotteryOn = "/startlottery";
         private const string CommandStartLotteryOff= "/unstartlottery";
+        private const string CommandStartCharacterTalk = "/startTalk";
+        private const string CommandStartCharacterTalkOff = "/unstartTalk";
         public bool SetGiftSwitch = false;
         public bool StartLotterySwitch = false;
+        public bool StartCharacterTalkSwitch = false;
         public Configuration Configuration { get; init; }
         public IChatGui ChatGui { get; init; }
 
         public readonly WindowSystem WindowSystem = new("RandomTalkPlugin");
         private LotteryWindows LotteryWindows { get; init; }
         private RadomCommandHelper CommandTracker { get; init; }
+        private RandomCommandSaver RandomCommandSaver { get; init; }
         private LotterydHelper LotteryHelper { get; init; }
         private Talker Talker { get; init; }
         public LotterydSaver LotterySaver { get; init; }
         public PluginUI PluginUI { get; init; }
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr ParseMessageDelegate(IntPtr a, IntPtr b);
-        private readonly Hook<ParseMessageDelegate> parseMessageHook;
         private delegate void MacroCallDelegate(RaptureShellModule* raptureShellModule, RaptureMacroModule.Macro* macro);
-        public enum DeathRollChatTypes : ushort
+        public enum RollChatTypes : ushort
         {
             // Random
             RandomRoll = 2122,
@@ -74,6 +80,8 @@ namespace RandomTalkPlugin
             CommandTracker = new RadomCommandHelper();
             LotteryHelper = new LotterydHelper();
             LotterySaver = new LotterydSaver();
+            RandomCommandSaver = new RandomCommandSaver();
+            LotterySaver.Init(PluginInterface);
             Talker = new Talker(); 
             this.PluginUI = new PluginUI(this);
 
@@ -97,10 +105,20 @@ namespace RandomTalkPlugin
             {
                 HelpMessage = CommandStartLotteryOff + " can turn off the control of lottery"
             });
+            this.CommandManager.AddHandler(CommandStartCharacterTalk, new CommandInfo(OnStartCharacterTalkCommandOn)
+            {
+                HelpMessage = CommandStartLotteryOff + " can turn on the control of character talk"
+            });
+            this.CommandManager.AddHandler(CommandStartCharacterTalkOff, new CommandInfo(OnStartCharacterTalkCommandOff)
+            {
+                HelpMessage = CommandStartLotteryOff + " can turn off the control of character talk"
+            });
+            RandomCommandSaver.LoadCharacterDialogue(PluginInterface);
             this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
             // PluginLog.Information(CommandTracker.GetRandomCommandRes());
             PluginInterface.UiBuilder.OpenMainUi += DrawLotteryUI;
             PluginInterface.UiBuilder.Draw += DrawUI;
+            PluginInterface.UiBuilder.OpenConfigUi += DrawRandomTalkUI;
         }
 
         public void Dispose()
@@ -128,10 +146,7 @@ namespace RandomTalkPlugin
 
         private void OnSetGiftCommandOn(string command, string args)
         {
-            if (SetGiftSwitch) {
-                return;
-            }
-
+            if (SetGiftSwitch) return;
             this.ChatGui.ChatMessage += Chat_OnSayGiftMessage;
             SetGiftSwitch = true;
             ChatGui.Print("Say gift set on sucess");
@@ -139,10 +154,7 @@ namespace RandomTalkPlugin
 
         private void OnSetGiftCommandOff(string command, string args)
         {
-            if (!SetGiftSwitch)
-            {
-                return;
-            }
+            if (!SetGiftSwitch) return;
             this.ChatGui.ChatMessage -= Chat_OnSayGiftMessage;
             SetGiftSwitch = false;
             ChatGui.Print("Say gift set off sucess");
@@ -150,23 +162,32 @@ namespace RandomTalkPlugin
 
         private void OnStartLotteryCommandOn(string command, string args)
         {
-            if (StartLotterySwitch)
-            {
-                return;
-            }
+            if (StartLotterySwitch) return;
             this.ChatGui.ChatMessage += Chat_OnFreeCompanyMessage;
             StartLotterySwitch = true;
             ChatGui.Print("Start Lottery set on sucess");
         }
         private void OnStartLotteryCommandOff(string command, string args)
         {
-            if (!StartLotterySwitch)
-            {
-                return;
-            }
+            if (!StartLotterySwitch) return;
             this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
             StartLotterySwitch = false;
             ChatGui.Print("Start Lottery set off sucess");
+        }
+        private void OnStartCharacterTalkCommandOn(string command, string args)
+        {
+            if (StartCharacterTalkSwitch) return;
+            this.ChatGui.ChatMessage += Chat_OnTellMessage;
+            StartCharacterTalkSwitch = true;
+            ChatGui.Print("Start Character Talk set on sucess");
+        }
+
+        private void OnStartCharacterTalkCommandOff(string command, string args)
+        {
+            if (!StartCharacterTalkSwitch) return;
+            this.ChatGui.ChatMessage -= Chat_OnTellMessage;
+            StartCharacterTalkSwitch = false;
+            ChatGui.Print("Start Character Talk set off sucess");
         }
 
         private void DrawUI()
@@ -180,11 +201,17 @@ namespace RandomTalkPlugin
             this.PluginUI.LotteryWindows.Visible = true;
         }
 
+        private void DrawRandomTalkUI()
+        {
+
+            this.PluginUI.RandomTalkWindow.Visible = true;
+        }
+
         private void Chat_OnRandomDiceMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             var xivChatType = (ushort)type;
             var channel = xivChatType & 0x7F;
-            if (!Enum.IsDefined(typeof(DeathRollChatTypes), xivChatType) && channel != 74) return;
+            if (!Enum.IsDefined(typeof(RollChatTypes), xivChatType) && channel != 74) return;
             var (name, number) = CommandTracker.GetRandomCommandRes(message); 
             PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ",name, number, senderId.ToString());
             byte[] byteArray = System.Text.Encoding.Default.GetBytes("/em 1234567");
@@ -222,6 +249,21 @@ namespace RandomTalkPlugin
             LotterySaver.SetGift(name, giftName);
             ChatGui.Print("设置礼物成功，礼物提供者：" + name + "， 礼物名：" + giftName);
         }
+
+        public void Chat_OnTellMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        {
+            if (type != XivChatType.TellIncoming) return;
+            if (!message.TextValue.Contains("[D&D]")) return;
+            var playerState = RandomCommandSaver.GetPlayerState(sender.TextValue);
+            PluginLog.Information("Playstate is: {0}, sender is {1}",playerState, sender.TextValue);
+            
+            if (playerState == null) {
+                playerState = "0";
+            };
+            Talker.TalkToPlayer(sender.TextValue, playerState);           
+        }
+
+
     }
 }
 

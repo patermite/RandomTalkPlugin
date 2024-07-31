@@ -1,37 +1,48 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO;
+using Dalamud.Plugin;
+using Newtonsoft.Json;
+
 
 namespace RandomTalkPlugin.CommandTracker
 {
-    public class RandomCommandTracker
+    public class RandomCommandSaver
     {
-        public DateTime TimeStamp { get; set; }
-        public String Name { get; set; }
-        public long Number { get; set; }
-        public long Total { get; set; }
-
-        public override string ToString()
+        public CharacterDialogue CharacterDialogue = new CharacterDialogue();
+        private Dictionary<string, string> playerStates = new Dictionary<string, string> { };
+        public void LoadCharacterDialogue(DalamudPluginInterface pluginInterface)
         {
-            return $"{TimeStamp} {Name} has roll {Number.ToString()}";  
+            string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, $"character.json"));
+            CharacterDialogue = JsonConvert.DeserializeObject<CharacterDialogue>(content);
+            return;
         }
 
-        public string ToFileLine()
+        public (TextToSay, bool) GetTextToSayFromCharacterDialogue(string senceName, string keyword)
+            
         {
-            return $"{TimeStamp.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture)};{Total};{Number}";
-        }
-        public static RandomCommandTracker FromFileLine(string line)
-        {
-            string[] parts = line.Split(";");
-            return new RandomCommandTracker
+            foreach (var s in CharacterDialogue.scenes)
             {
-                TimeStamp = DateTime.ParseExact(parts[0], "dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal),
-                Total = Convert.ToInt64(parts[1]),
-                Number = Convert.ToInt64(parts[2])
-            };
+                if (s.sceneName == senceName) {
+                    if (s.textToSay.TryGetValue(keyword, out TextToSay value)) {
+                        return (value, true);
+                    }
+                    break;
+                } 
+            }
+            return (new TextToSay { }, false);
         }
+
+        public void SetPlayerState(string playerName, string state)
+        {
+            playerStates[playerName] = state;
+        }
+
+        public string GetPlayerState(string playerName)
+        {
+            return playerStates[playerName];
+        }
+
     }
+        
 }

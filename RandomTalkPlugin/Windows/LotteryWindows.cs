@@ -34,7 +34,21 @@ namespace RandomTalkPlugin.Windows
                     }
                     
                 }
-                
+
+                if (ImGui.Button("Print GiftsDesitination"))
+                {
+                    var desDict = this.plugin.LotterySaver.GetDestinationGiftDict();
+                    foreach (var ((name, giftName), recevier) in desDict)
+                    {
+                        this.plugin.ChatGui.Print(name + ", " + giftName+ "："+ recevier);
+                    }
+                }
+
+                if (ImGui.Button("Eport to csv"))
+                {
+                    plugin.LotterySaver.ExportToCsv(this.plugin.ChatGui);
+                }
+
                 ImGui.EndChildFrame();
 
 

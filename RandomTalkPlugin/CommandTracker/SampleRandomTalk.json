@@ -1,0 +1,64 @@
+{
+    "character": "亚历克斯",
+    "dialogue": [
+        {
+            "scene": "场景一",
+            "textToSay": {
+                "1": {
+                    "condition":  "你好，我是来应聘的",
+                    "text": "你好，你是来应聘安保的吧",
+                    "thresholdValue": 0,
+                    "successJump": "2"
+                },
+                "2": {
+                    "text": "既然你都已经来了，让我来试试你的身手（力量检定，请选择掷骰子）",
+                    "threasholdTType": "Power",
+                    "thresholdValue": 5,
+                    "successJump": "身手不错",
+                    "faliedJump": "身手垃圾"
+
+                },
+                "身手不错": {
+                    "text": "身手不错，你合格了",
+                    "successJump": "身手不错"
+                },
+                "身手垃圾": {
+                    "text": "就这？你这身手还得再练几年，不过我对同伴要求不高，你去打几个xxx给我证明你的实力吧",
+                    "successJump": "怪物肉"
+                },
+                "怪物肉": {
+                    "condition": "我拿到怪物肉了！",
+                    "text": "你竟然拿到怪物肉啦，我认可你了，接下来计划是这样的"
+                }
+
+
+            }
+        },
+        {
+            "scene": "场景二",
+            "textToSay": {
+                "1": {
+                    "text": "这个伊莎贝尔竟然是无影！",
+                    "thresholdValue": 0
+                },
+                "2": {
+                    "text": "这里有两个地方可以去，左边和右边，你选哪边",
+                    "threasholdTType": "Choice",
+                    "choice1Jump": "左边",
+                    "faliedJump": "右边"
+                },
+                "左边": {
+                    "text": "左边这条路看起来比较危险，但是是条近路，就听你的吧",
+                    "successJump": "我们走吧"
+                },
+                "右边": {
+                    "text": "右边这条路虽然有点绕远，但是比较安全，就听你的吧",
+                    "successJump": "我们走吧"
+                },
+                "我们走吧": {
+                    "text": "我们走吧，希望能尽快追上"
+                }
+            }
+        }
+    ]
+}
