@@ -13,17 +13,13 @@ using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
 using System;
+using System.Threading;
 using System.Runtime.InteropServices;
 using static System.Net.Mime.MediaTypeNames;
 using Dalamud.Plugin.Ipc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.System.String;
-using System.Threading.Channels;
-using System.Collections.Generic;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Globalization;
 
 
 namespace RandomTalkPlugin
@@ -37,6 +33,7 @@ namespace RandomTalkPlugin
         public static RandomTalkPlugin Instance;
 
         private const string CommandRadnomTalkName = "/randomtalk";
+        private const string CommandLotteryTalkName = "/lotterytalk";
         private const string CommandSetGiftOn = "/setgift";
         private const string CommandSetGiftOff = "/unsetgift";
         private const string CommandStartLotteryOn = "/startlottery";
@@ -85,9 +82,13 @@ namespace RandomTalkPlugin
             Talker = new Talker(); 
             this.PluginUI = new PluginUI(this);
 
+            this.CommandManager.AddHandler(CommandLotteryTalkName, new CommandInfo(OnLotteryTalkCommand)
+            {
+                HelpMessage = CommandRadnomTalkName + " can open the control window of the lottery plugin"
+            });
             this.CommandManager.AddHandler(CommandRadnomTalkName, new CommandInfo(OnRandomTalkCommand)
             {
-                HelpMessage = CommandRadnomTalkName + " can open the control window of the plugin"
+                HelpMessage = CommandRadnomTalkName + " can open the control window of the randomtalk plugin"
             });
             this.CommandManager.AddHandler(CommandSetGiftOn, new CommandInfo(OnSetGiftCommandOn)
             {
@@ -113,9 +114,6 @@ namespace RandomTalkPlugin
             {
                 HelpMessage = CommandStartLotteryOff + " can turn off the control of character talk"
             });
-            RandomCommandSaver.LoadCharacterDialogue(PluginInterface);
-            this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
-            // PluginLog.Information(CommandTracker.GetRandomCommandRes());
             PluginInterface.UiBuilder.OpenMainUi += DrawLotteryUI;
             PluginInterface.UiBuilder.Draw += DrawUI;
             PluginInterface.UiBuilder.OpenConfigUi += DrawRandomTalkUI;
@@ -127,6 +125,7 @@ namespace RandomTalkPlugin
 
             PluginInterface.UiBuilder.Draw -= DrawUI;
             PluginInterface.UiBuilder.OpenMainUi -= DrawLotteryUI;
+            PluginInterface.UiBuilder.OpenConfigUi -= DrawRandomTalkUI;
 
             CommandManager.RemoveHandler(CommandRadnomTalkName);
             CommandManager.RemoveHandler(CommandSetGiftOn);
@@ -136,12 +135,19 @@ namespace RandomTalkPlugin
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
             this.ChatGui.ChatMessage -= Chat_OnSayGiftMessage;
+            this.ChatGui.ChatMessage -= Chat_OnTellMessage;
         }
 
         private void OnRandomTalkCommand(string command, string args)
         {
             // in response to the slash command, just toggle the display status of our main ui
             this.PluginUI.RandomTalkWindow.Visible = true;
+        }
+
+        private void OnLotteryTalkCommand(string command, string args)
+        {
+            // in response to the slash command, just toggle the display status of our main ui
+            this.PluginUI.LotteryWindows.Visible = true;
         }
 
         private void OnSetGiftCommandOn(string command, string args)
@@ -177,7 +183,10 @@ namespace RandomTalkPlugin
         private void OnStartCharacterTalkCommandOn(string command, string args)
         {
             if (StartCharacterTalkSwitch) return;
+            RandomCommandSaver.LoadCharacterDialogue(PluginInterface);
+            RandomCommandSaver.CheckCharacterDialogue();
             this.ChatGui.ChatMessage += Chat_OnTellMessage;
+            this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
             StartCharacterTalkSwitch = true;
             ChatGui.Print("Start Character Talk set on sucess");
         }
@@ -186,6 +195,7 @@ namespace RandomTalkPlugin
         {
             if (!StartCharacterTalkSwitch) return;
             this.ChatGui.ChatMessage -= Chat_OnTellMessage;
+            this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             StartCharacterTalkSwitch = false;
             ChatGui.Print("Start Character Talk set off sucess");
         }
@@ -212,21 +222,24 @@ namespace RandomTalkPlugin
             var xivChatType = (ushort)type;
             var channel = xivChatType & 0x7F;
             if (!Enum.IsDefined(typeof(RollChatTypes), xivChatType) && channel != 74) return;
-            var (name, number) = CommandTracker.GetRandomCommandRes(message); 
-            PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ",name, number, senderId.ToString());
-            byte[] byteArray = System.Text.Encoding.Default.GetBytes("/em 1234567");
-            var line = new  Utf8String("/s 我 是 你 爸爸");
-            
-            var macro = RaptureMacroModule.Instance()-> GetMacro(1, 1);
-            RaptureMacroModule.Instance()->SetMacroLines(macro, 0, &line);
-            RaptureShellModule.Instance()->ExecuteMacro(macro);
+            var (name, number) = CommandTracker.GetRandomCommandRes(message);
+            var playerState = RandomCommandSaver.GetPlayerState(name);
+            PluginLog.Information("[RandomDice] Playstate is: {0}, sender is {1}", playerState, name);
+            if (playerState == "")
+            {
+                playerState = "0";
+            }
+            PluginLog.Information("[RandomDice] name is: {0}, state is {1}, number is {2} ", name, playerState, number);
+
+            Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkToPlayerRandomCommand));
+            thread.Start(new RandomDiceThreadParameters(name, playerState, number, RandomCommandSaver));
+
         }
 
         public void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             if (type != XivChatType.FreeCompany) return;
-            var name = sender.TextValue;
-            PluginLog.Information("name is: {0}, message is {1}, senderId is {2} ", name, message.TextValue, senderId.ToString());
+            var name = sender.TextValue;;
             var number = LotteryHelper.GetLotteryNumberRes(message);
             if (number == "") return;
             int intNum;
@@ -236,7 +249,8 @@ namespace RandomTalkPlugin
                 return;
             }
             PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ", name, number, senderId.ToString());
-            Talker.TalkInLotteryRes(intNum, name, number, LotterySaver);
+            Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkInLotteryRes));
+            thread.Start(new LotteryThreadParameters(intNum, name, number, LotterySaver));
         }
         public void Chat_OnSayGiftMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
@@ -257,10 +271,11 @@ namespace RandomTalkPlugin
             var playerState = RandomCommandSaver.GetPlayerState(sender.TextValue);
             PluginLog.Information("Playstate is: {0}, sender is {1}",playerState, sender.TextValue);
             
-            if (playerState == null) {
+            if (playerState == "") {
                 playerState = "0";
             };
-            Talker.TalkToPlayer(sender.TextValue, playerState);           
+            Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkToPlayer)); 
+            thread.Start(new TalkToPlayerThreadParameters(sender.TextValue, playerState, message, RandomCommandSaver));
         }
 
 

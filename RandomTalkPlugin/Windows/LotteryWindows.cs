@@ -1,7 +1,9 @@
-using Dalamud.Plugin.Services;
+
 using ImGuiNET;
-using System.Linq;
+using System;
 using System.Numerics;
+using Dalamud.Interface.Windowing;
+
 
 namespace RandomTalkPlugin.Windows
 {
@@ -22,7 +24,7 @@ namespace RandomTalkPlugin.Windows
             }
 
 
-            ImGui.SetNextWindowSize(new Vector2(232, 75), ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSize(new Vector2(232, 232), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("Lottery Controller", ref this.visible))
             {
                 if (ImGui.Button("Print Gifts"))

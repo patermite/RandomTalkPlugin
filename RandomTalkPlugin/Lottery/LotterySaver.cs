@@ -1,3 +1,4 @@
+using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using System;
@@ -30,9 +31,15 @@ namespace RandomTalkPlugin.Lottery
 
         public void SetGift(string name, string giftName)
         {
-            giftDict[giftDict.Count + 1] = (name, giftName);
+            int i = 1;
+            for (i=1; giftDict.TryGetValue(giftDict.Count + i,out (string, string) value);i++) {
+
+            }
+            giftDict[giftDict.Count + i] = (name, giftName);
+
             var shuffledNumbers = Enumerable.Range(1, giftDict.Count).OrderBy(x => Guid.NewGuid());
             var valueList = giftDict.Values.ToList();
+            PluginLog.Information("[setgift] {0} {1}", shuffledNumbers, valueList);
             var tempDict = shuffledNumbers.Zip(valueList, (key, value) => new { key, value })
                                           .ToDictionary(item => item.key, item => item.value);
             giftDict = tempDict;

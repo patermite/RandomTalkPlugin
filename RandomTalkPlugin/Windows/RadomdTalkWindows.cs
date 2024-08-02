@@ -2,7 +2,6 @@ using System;
 using System.Numerics;
 using Dalamud.Interface.Windowing;
 using ImGuiNET;
-using RandomTalkPlugin;
 
 namespace RandomTalkPlugin.Windows;
 
@@ -10,6 +9,7 @@ public class RandomTalkWindow : Window, IDisposable
 {
     private Configuration Configuration;
     int clusterSize;
+    int daysShown = 90;
 
     // We give this window a constant ID using ###
     // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -24,11 +24,18 @@ public class RandomTalkWindow : Window, IDisposable
 
     public override void Draw()
     {
-        Configuration = new Configuration { ClusterSizeInHours = clusterSize };
-        var movable = Configuration.IsConfigWindowMovable;
-        if (ImGui.Checkbox("Random Talk", ref movable))
+        if (!Visible)
         {
-
+            return;
         }
+        ImGui.SetNextWindowSize(new Vector2(500, 500), ImGuiCond.FirstUseEver);
+        if (ImGui.Begin("RandomTalk Controler", ref this.visible))
+        {
+            if (ImGui.InputInt("Amount of days shown", ref daysShown, 5, 30, ImGuiInputTextFlags.EnterReturnsTrue))
+            {
+            }
+        }
+        ImGui.End();
+            
     }
 }
