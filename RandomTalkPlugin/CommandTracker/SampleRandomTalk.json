@@ -5,10 +5,10 @@
             "scenename": "场景一",
             "texttosay": {
                 "0": {
-                    "condition": "你好，我是来应聘的",
-                    "text": "你好，你是来应聘安保的吧",
+                    "text": "你好，我是来应聘安保的吧 \n 我是亚历克斯,你好",
                     "thresholdValue": 0,
-                    "successJump": "1"
+                    "successJump": "1",
+                    "emotion": "欢迎"
                 },
                 "1": {
                     "text": "既然你都已经来了，让我来试试你的身手（力量检定，请选择掷骰子）",

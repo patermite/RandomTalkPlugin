@@ -26,6 +26,7 @@ namespace RandomTalkPlugin.CommandTracker
         public string failedJump;
         public string choice1Jump;
         public string choice2Jump;
+        public string emotion;
     }
 
     class LotteryThreadParameters
