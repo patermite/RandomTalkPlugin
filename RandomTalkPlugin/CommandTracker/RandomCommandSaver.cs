@@ -14,17 +14,24 @@ namespace RandomTalkPlugin.CommandTracker
         public CharacterDialogue CharacterDialogue = new CharacterDialogue();
         private Dictionary<string, string> playerStates = new Dictionary<string, string> { };
         public string CurrentSence = "场景一";
+        public string CharacterName = "SampleRandomTalk";
         public void LoadCharacterDialogue(DalamudPluginInterface pluginInterface)
         {
-            PluginLog.Information("the path is:" + pluginInterface.ConfigDirectory.FullName + $"\\SampleRandomTalk.json");
-            if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\SampleRandomTalk.json")) return;
-            string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, $"SampleRandomTalk.json"));
+            if (CharacterName == "") { return; }
+            PluginLog.Information("the path is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName+".json");
+            if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName + ".json")) return;
+            string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, CharacterName+".json"));
             CharacterDialogue = JsonConvert.DeserializeObject<CharacterDialogue>(content);
             if (CharacterDialogue.dialogue != null && CharacterDialogue.dialogue.Count > 0)
             {
                 CurrentSence = CharacterDialogue.dialogue[0].scenename;
             }
             return;
+        }
+        public void SetCharacterName (string name)
+        {
+            if (name == null) { return; }
+            CharacterName = name;
         }
 
         public (TextToSay, bool) GetTextToSayFromCharacterDialogue(string keyword)
@@ -34,12 +41,10 @@ namespace RandomTalkPlugin.CommandTracker
             {
                 foreach (var s in CharacterDialogue.dialogue)
                 {
-                    PluginLog.Information($"keyword: {keyword}, textToSay is {s.texttosay}");
                     if (s.scenename == CurrentSence)
                     {                      
                         if (s.texttosay.TryGetValue(keyword, out TextToSay value))
                         {
-                            PluginLog.Information("find it");
                             return (value, true);
                         }
                         break;
@@ -85,6 +90,9 @@ namespace RandomTalkPlugin.CommandTracker
         public List<string> GetAllSences()
         {
             var res = new List<string>();
+            if (CharacterDialogue.dialogue == null) {
+                return res;
+            }
             foreach (var sence in CharacterDialogue.dialogue)
             {
                 res.Add(sence.scenename);
@@ -105,9 +113,11 @@ namespace RandomTalkPlugin.CommandTracker
                 if (sence == s)
                 {
                     CurrentSence = sence;
+                    playerStates = new Dictionary<string, string> { };
                     return;
                 }
             }
+            playerStates = new Dictionary<string, string> { };
         }
 
     }

@@ -1,6 +1,7 @@
 using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,9 +14,23 @@ namespace RandomTalkPlugin.Lottery
         private Dictionary<int, (string, string)> giftDict = new Dictionary<int, (string,string)> { };
         private Dictionary<(string, string),  string> giftDestinationDict = new Dictionary<(string, string), string> { };
         private string savePath = "";
+        private string giftFileName = "GiftList";
         public void Init (DalamudPluginInterface pluginInterface)
         {
             savePath = pluginInterface.ConfigDirectory.FullName;
+        }
+
+        public void LoadPlayerGift(DalamudPluginInterface pluginInterface)
+        {
+            if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + giftFileName + ".json")) return;
+            string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, giftFileName + ".json"));
+            var playerGift = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
+            if (playerGift == null) return;
+            foreach (var (key, value) in playerGift)
+            {
+                SetGift(key, value);
+            }
+            return;
         }
         public (string, string) GetGift(int number, string name)
         {

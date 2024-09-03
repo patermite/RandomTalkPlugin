@@ -27,7 +27,7 @@ namespace RandomTalkPlugin
     public unsafe class RandomTalkPlugin : IDalamudPlugin
     {
         [PluginService] 
-        internal static DalamudPluginInterface PluginInterface { get; private set; } = null!;
+        public static DalamudPluginInterface PluginInterface { get; set; } = null!;
         [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
         public ICommandManager CommandManager { get; init; }
         public static RandomTalkPlugin Instance;
@@ -51,6 +51,7 @@ namespace RandomTalkPlugin
         private Talker Talker { get; init; }
         public LotterydSaver LotterySaver { get; init; }
         public PluginUI PluginUI { get; init; }
+        public PlayerAttribute PlayerAttributes { get; init; }
         [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
         private delegate IntPtr ParseMessageDelegate(IntPtr a, IntPtr b);
         private delegate void MacroCallDelegate(RaptureShellModule* raptureShellModule, RaptureMacroModule.Macro* macro);
@@ -75,15 +76,17 @@ namespace RandomTalkPlugin
             LotteryHelper = new LotterydHelper();
             LotterySaver = new LotterydSaver();
             RandomCommandSaver = new RandomCommandSaver();
+            PlayerAttributes = new PlayerAttribute();
             LotterySaver.Init(PluginInterface);
             RandomCommandSaver.LoadCharacterDialogue(PluginInterface);
             RandomCommandSaver.CheckCharacterDialogue();
+            PlayerAttributes.LoadPlayerJob(PluginInterface);
             Talker = new Talker(); 
             this.PluginUI = new PluginUI(this);
 
             this.CommandManager.AddHandler(CommandLotteryTalkName, new CommandInfo(OnLotteryTalkCommand)
             {
-                HelpMessage = CommandRadnomTalkName + " can open the control window of the lottery plugin"
+                HelpMessage = CommandLotteryTalkName + " can open the control window of the lottery plugin"
             });
             this.CommandManager.AddHandler(CommandRadnomTalkName, new CommandInfo(OnRandomTalkCommand)
             {
@@ -99,11 +102,11 @@ namespace RandomTalkPlugin
             });
             this.CommandManager.AddHandler(CommandStartCharacterTalk, new CommandInfo(OnStartCharacterTalkCommandOn)
             {
-                HelpMessage = CommandStartLotteryOff + " can turn on the control of character talk"
+                HelpMessage = CommandStartCharacterTalk + " can turn on the control of character talk"
             });
             this.CommandManager.AddHandler(CommandStartCharacterTalkOff, new CommandInfo(OnStartCharacterTalkCommandOff)
             {
-                HelpMessage = CommandStartLotteryOff + " can turn off the control of character talk"
+                HelpMessage = CommandStartCharacterTalkOff + " can turn off the control of character talk"
             });
             PluginInterface.UiBuilder.OpenMainUi += DrawRandomTalkUI;
             PluginInterface.UiBuilder.Draw += DrawUI;
@@ -123,7 +126,7 @@ namespace RandomTalkPlugin
             CommandManager.RemoveHandler(CommandStartLotteryOff);
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
-            this.ChatGui.ChatMessage -= Chat_OnTellMessage;
+            this.ChatGui.ChatMessage -= Chat_OnPartyMessage;
         }
 
         private void OnRandomTalkCommand(string command, string args)
@@ -156,7 +159,7 @@ namespace RandomTalkPlugin
         {
             if (StartCharacterTalkSwitch) return;
             if (!RandomCommandSaver.CheckCharacterDialogue()) return;
-            this.ChatGui.ChatMessage += Chat_OnTellMessage;
+            this.ChatGui.ChatMessage += Chat_OnPartyMessage;
             this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
             StartCharacterTalkSwitch = true;
             ChatGui.Print("Start Character Talk set on sucess");
@@ -165,7 +168,7 @@ namespace RandomTalkPlugin
         private void OnStartCharacterTalkCommandOff(string command, string args)
         {
             if (!StartCharacterTalkSwitch) return;
-            this.ChatGui.ChatMessage -= Chat_OnTellMessage;
+            this.ChatGui.ChatMessage -= Chat_OnPartyMessage;
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             StartCharacterTalkSwitch = false;
             ChatGui.Print("Start Character Talk set off sucess");
@@ -195,7 +198,6 @@ namespace RandomTalkPlugin
             if (!Enum.IsDefined(typeof(RollChatTypes), xivChatType) && channel != 74) return;
             var (name, number) = CommandTracker.GetRandomCommandRes(message);
             var playerState = RandomCommandSaver.GetPlayerState(name);
-            PluginLog.Information("[RandomDice] Playstate is: {0}, sender is {1}", playerState, name);
             if (playerState == "")
             {
                 playerState = "0";
@@ -203,12 +205,13 @@ namespace RandomTalkPlugin
             PluginLog.Information("[RandomDice] name is: {0}, state is {1}, number is {2} ", name, playerState, number);
 
             Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkToPlayerRandomCommand));
-            thread.Start(new RandomDiceThreadParameters(name, playerState, number, RandomCommandSaver));
+            thread.Start(new RandomDiceThreadParameters(name, playerState, number, RandomCommandSaver, PlayerAttributes, ChatGui));
 
         }
 
         public void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
+            PluginLog.Information("the text is " + message.TextValue + " the payload is " + message.Payloads);
             if (type != XivChatType.FreeCompany) return;
             var name = sender.TextValue;;
             var number = LotteryHelper.GetLotteryNumberRes(message);
@@ -224,36 +227,27 @@ namespace RandomTalkPlugin
             thread.Start(new LotteryThreadParameters(intNum, name, number, LotterySaver));
         }
 
-        /*
-        public void Chat_OnSayGiftMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        public void Chat_OnPartyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
         {
-            if (type != XivChatType.Say) return;
-            var (name, giftName) = LotteryHelper.GetGiftRes(message);
-            if (name == "" || giftName == "") {
-                ChatGui.Print("设置礼物失败，礼物提供者：" + name + "， 礼物名：" + giftName);
-                return;
-            }
-            LotterySaver.SetGift(name, giftName);
-            ChatGui.Print("设置礼物成功，礼物提供者：" + name + "， 礼物名：" + giftName);
-        }
-        */
-
-        public void Chat_OnTellMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
-        {
-            if (type != XivChatType.TellIncoming) return;
+            if (type != XivChatType.Party) return;
             if (!message.TextValue.Contains("[跑团]")) return;
-            var playerState = RandomCommandSaver.GetPlayerState(sender.TextValue);
-            PluginLog.Information("Playstate is: {0}, sender is {1}",playerState, sender.TextValue);
+            var senderName = "";
+            if (sender.TextValue.Length > 1) {
+                senderName = sender.TextValue.Remove(0,1);
+            }
+            var playerState = RandomCommandSaver.GetPlayerState(senderName);
+            PluginLog.Information("Playstate is: {0}, sender is {1}",playerState, senderName);
             
             if (playerState == "") {
                 playerState = "0";
             };
             Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkToPlayer)); 
-            thread.Start(new TalkToPlayerThreadParameters(sender.TextValue, playerState, message, RandomCommandSaver));
+            thread.Start(new TalkToPlayerThreadParameters(senderName, playerState, message, RandomCommandSaver, ChatGui));
         }
 
 
         public RandomCommandSaver GetRandomCommandSaver() { return RandomCommandSaver; }
+        public DalamudPluginInterface GetInterface() { return PluginInterface; }
 
     }
 }

@@ -11,6 +11,11 @@ public class RandomTalkWindow : Window, IDisposable
 {
     private Configuration Configuration;
     int clusterSize;
+    string inputPlayerName = "玩家名字";
+    string inputState = "玩家存档位置";
+    string inputJobPlayerName = "设置职业的玩家名字";
+    string inputJob = "职业名";
+    string inputCharacterFileName = "角色文件名不带后缀";
 
     // We give this window a constant ID using ###
     // This allows for labels being dynamic, like "{FPS Counter}fps###XYZ counter window",
@@ -30,8 +35,6 @@ public class RandomTalkWindow : Window, IDisposable
             return;
         }
         int selectedItem = 0;
-        string inputPlayerName = "玩家名字";
-        string inputState = "玩家存档位置";
         ImGui.SetNextWindowSize(new Vector2(500, 500), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("RandomTalk Controler", ref this.visible))
         {
@@ -44,20 +47,29 @@ public class RandomTalkWindow : Window, IDisposable
                 if (this.plugin.StartCharacterTalkSwitch)
                 {
                     if (!this.plugin.GetRandomCommandSaver().CheckCharacterDialogue()) return;
-                    this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnTellMessage;
+                    this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnPartyMessage;
                     this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnRandomDiceMessage;
                     this.plugin.StartCharacterTalkSwitch = true;
                     this.plugin.ChatGui.Print("Start Character Talk set on sucess");
                 }
                 else
                 {
-                    this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnTellMessage;
+                    this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnPartyMessage;
                     this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnRandomDiceMessage;
                     this.plugin.StartCharacterTalkSwitch = false;
                     this.plugin.ChatGui.Print("Start Character Talk set off sucess");
                 }
 
             }
+            ImGui.InputText("##CharacterFileName", ref inputCharacterFileName, 20);
+            ImGui.SameLine();
+            if (ImGui.Button("导入角色"))
+            {
+                rp.SetCharacterName(inputCharacterFileName);
+                this.plugin.ChatGui.Print("修改角色为" + inputCharacterFileName);
+                rp.LoadCharacterDialogue(this.plugin.GetInterface());
+            }
+
             if (ImGui.BeginCombo("##场景选择", rp.CurrentSence, 0))
             {
                 for (int i = 0; i < senceList.Count; i++)
@@ -78,6 +90,27 @@ public class RandomTalkWindow : Window, IDisposable
                 ImGui.EndCombo();
             }
 
+            
+
+            ImGui.InputText("##PlayerName", ref inputPlayerName, 20);
+            ImGui.SameLine();
+            ImGui.InputText("##State", ref inputState, 20);
+            if (ImGui.Button("修改玩家存档"))
+            {
+                this.plugin.GetRandomCommandSaver().SetPlayerState(inputPlayerName, inputState);
+                this.plugin.ChatGui.Print("修改玩家" + inputPlayerName + "的存档为" + inputState);
+            }
+
+            ImGui.InputText("##JobPlayerName", ref inputJobPlayerName, 20);
+            ImGui.SameLine();
+            ImGui.InputText("##Job", ref inputJob, 20);
+            if (ImGui.Button("设置玩家职业"))
+            {
+                this.plugin.PlayerAttributes.SetPlayerJob(inputJobPlayerName, inputJob);
+                this.plugin.ChatGui.Print("修改玩家" + inputJobPlayerName + "的职业为" + inputJob);
+            }
+
+            //if (ImGui.InputInt("Amount of days shown", ref daysShown, 5, 30, ImGuiInputTextFlags.EnterReturnsTrue))
             if (ImGui.Button("打印当前场景"))
             {
                 var currentSence = this.plugin.GetRandomCommandSaver().CurrentSence; ;
@@ -94,17 +127,15 @@ public class RandomTalkWindow : Window, IDisposable
                 }
             }
 
-            ImGui.InputText("##PlayerName", ref inputPlayerName, 100);
-            ImGui.InputText("##State", ref inputState, 100);
-
-            ImGui.Text("将" + inputPlayerName + "的存档设置为：" + inputState);
-            if (ImGui.Button("修改玩家存档"))
+            if (ImGui.Button("打印当前玩家职业"))
             {
-                this.plugin.GetRandomCommandSaver().SetPlayerState(inputPlayerName, inputState);
-                this.plugin.ChatGui.Print("修改玩家" + inputPlayerName + "为" + inputState);
+                var playerJobs = this.plugin.PlayerAttributes.GetAllPlayerJob();
+                foreach (var (name, job) in playerJobs)
+                {
+                    this.plugin.ChatGui.Print(name + "的职业为：" + job);
+                }
             }
 
-            //if (ImGui.InputInt("Amount of days shown", ref daysShown, 5, 30, ImGuiInputTextFlags.EnterReturnsTrue))
         }
         ImGui.End();
             

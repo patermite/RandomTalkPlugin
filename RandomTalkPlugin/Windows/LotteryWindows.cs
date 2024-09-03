@@ -53,9 +53,9 @@ namespace RandomTalkPlugin.Windows
                 {
                     this.plugin.ChatGui.Print( "礼物列表");
                     var giftDict = this.plugin.LotterySaver.GetGiftDict();
-                    foreach (var (_, (name,giftName)) in giftDict)
+                    foreach (var (number, (name,giftName)) in giftDict)
                     {
-                        this.plugin.ChatGui.Print(name + "：" + giftName);
+                        this.plugin.ChatGui.Print("号码:"+ number +" "+ name + "：" + giftName);
                     }
                     
                 }
@@ -82,6 +82,11 @@ namespace RandomTalkPlugin.Windows
                 if (ImGui.Button("Add Gift"))
                 {
                     this.plugin.LotterySaver.SetGift(inputPlayerName, inputGiftName);
+                }
+
+                if (ImGui.Button("Load Gift"))
+                {
+                    plugin.LotterySaver.LoadPlayerGift(this.plugin.GetInterface());
                 }
 
 

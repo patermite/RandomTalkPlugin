@@ -5,6 +5,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
+using FFXIVClientStructs.Interop;
 using Lumina.Excel.GeneratedSheets;
 using Lumina.Excel.GeneratedSheets2;
 using System;
@@ -23,11 +24,14 @@ namespace RandomTalkPlugin.CommandTracker
         static Mutex RandomTalklock = new Mutex();
         static Mutex RandomDicelock = new Mutex();
         public string TalkSeq = "/wait 2";
-        public string TargetToPlayer = "/tpc";
+        public string TalkLongSeq = "/wait 4";
+        public string TargetToPlayer = "/ta <2>";
+        public string ChoiceType = "选择";
         public unsafe Macro* macroLottery = RaptureMacroModule.Instance()->GetMacro(1, 0);
-        public unsafe Macro* macroRandomDice = RaptureMacroModule.Instance()->GetMacro(2, 2);
+        public unsafe Macro* macroRandomDice = RaptureMacroModule.Instance()->GetMacro(1, 2);
         public unsafe Macro* macroRandomTalk = RaptureMacroModule.Instance()->GetMacro(1, 1);
         public string ServerName = "萌芽池";
+        private RadomCommandHelper helper = new RadomCommandHelper();
 
         public unsafe void TalkInLotteryRes(object parameters)
         {
@@ -79,21 +83,31 @@ namespace RandomTalkPlugin.CommandTracker
                     if (textToSay.condition != null)
                     {
                         if (!threadParams.message.TextValue.Contains(textToSay.condition)) {
-                            PluginLog.Information("need condition" + textToSay.condition + " for player: " + threadParams.playerName);
+                            threadParams.ChatGui.Print("需要玩家打印：" + textToSay.condition + " 对应玩家: " + threadParams.playerName);
                             return;
                         }
                     }
 
+                    (threadParams, ok) = SetChoiceRes(textToSay, threadParams, threadParams.playerState);
+                    PluginLog.Information("the ok is" + ok);
+                    if (ok) { continue; }
+
                     var lineList = new List<string>();
-                    PluginLog.Information("the text to say text is :" + textToSay.text);
                     foreach (var t in textToSay.text.Split("\n"))
                     {
-                        if (t.Length > 50)
+                        if (t.Length > 60)
                         {
                             PluginLog.Error("对应文本一行超过60字符,请检查，场景为：{0}，玩家状态为：{1}", threadParams.RandomCommandSaver.CurrentSence, threadParams.playerState);
                             return;
                         }
-                        lineList.Add("/t " + threadParams.playerName + "@" + ServerName + " [" + threadParams.RandomCommandSaver.GetCharacterName() + "]" + t + " <wait.3>");
+                        var character = threadParams.RandomCommandSaver.GetCharacterName();
+                        var vocie = "<se.16>";
+                        if (textToSay.speaker != null)
+                        {
+                            character = textToSay.speaker;
+                            vocie = "<se.14>";
+                        }
+                        lineList.Add("/p " + " [" + character + "]" + t + vocie + " <wait.4>");
                     }
                     if (lineList.Count > 13)
                     {
@@ -101,40 +115,25 @@ namespace RandomTalkPlugin.CommandTracker
                         return;
                     }
 
-                    if (textToSay.emotion == null )
+                    if (textToSay.emotion == null ) 
                     {
                         textToSay.emotion = "说话";
-                     }
-                    var firstLine = new Utf8String(TargetToPlayer);
-                    RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 0, &firstLine);
-                    var secondLine = new Utf8String("/" + textToSay.emotion);
-                    RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 1, &secondLine);
+                    }
+                    var target = new Utf8String(TargetToPlayer);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 0, &target);
+                    var emotion = new Utf8String("/" + textToSay.emotion + "<wait.2>");
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 1, &emotion);
                     for (var i = 0; i < lineList.Count; i++)
                     {
                         var value = new Utf8String(lineList.ElementAt(i));
-                        RaptureMacroModule.Instance()->SetMacroLines(macroLottery, i+2, &value);
+                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, i+2, &value);
 
                     }
-                    RaptureShellModule.Instance()->ExecuteMacro(macroLottery);
-                    Thread.Sleep(textToSay.text.Split("\n").Count() * 3100);
-                    if (textToSay.threasholdTType == "Choice")
-                    {
-                        if (threadParams.message.TextValue.Contains(textToSay.choice1Jump))
-                        {
-                            threadParams.playerState = textToSay.choice1Jump;
-                            threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, textToSay.choice1Jump);
-                            continue;
-                        }
-                        if (threadParams.message.TextValue.Contains(textToSay.choice2Jump))
-                        {
-                            threadParams.playerState = textToSay.choice2Jump;
-                            threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, textToSay.choice2Jump);
-                            continue;
-                        }
-                        return;
-                    }
+                    RaptureShellModule.Instance()->ExecuteMacro(macroRandomTalk);
+                    Thread.Sleep(textToSay.text.Split("\n").Count() * 4100);
 
-                    if (textToSay.successJump == null || textToSay.threasholdTType != null || textToSay.thresholdValue != 0)
+
+                    if (textToSay.successJump == null || textToSay.threasholdType != null || textToSay.thresholdValue != 0)
                     {
                         break;
                     }
@@ -158,17 +157,43 @@ namespace RandomTalkPlugin.CommandTracker
                 var (textToSay, ok) = threadParams.RandomCommandSaver.GetTextToSayFromCharacterDialogue(threadParams.playerState);
                 if (!ok) return;
                 
-                if (textToSay.thresholdValue == 0) return;
-                var rollRes = "/t " + threadParams.playerName + "@" + ServerName + " " + "roll点结果为:" + threadParams.number + " roll点成阈值为：" + textToSay.thresholdValue + "<wait.3>";
+                if (textToSay.thresholdValue == 0 || textToSay.threasholdType == ChoiceType) return;
+                var rollAdd = "";
+                var rollRes = "/p " + "roll点结果为:" + threadParams.number + " roll点成阈值为：" + textToSay.thresholdValue + "<wait.3>";
                 var uf8Res = new Utf8String(rollRes);
                 int intNum;
                 if (Int32.TryParse(threadParams.number, out intNum))
                 {
-                    if (intNum > 20)
+                    if (intNum > 20 )
                     {
-                        PluginLog.Error("The roll number over 20:");
+                        threadParams.ChatGui.Print("点数roll的超过 20，请重新掷骰子:");
                         return;
                     }
+                    var playerJob = threadParams.PlayerAttribute.GetPlayerJob(threadParams.playerName);
+                    if (playerJob == null) {
+                        threadParams.ChatGui.Print(threadParams.playerName + "玩家需要设置职业");
+                    }
+                    var playerAtt = threadParams.PlayerAttribute.GetJobAttribute(playerJob);
+                    if (textToSay.threasholdType != null) 
+                    {
+                        if (textToSay.threasholdType == playerAtt.postiveAttribute.name)
+                        {
+                            var add = playerAtt.postiveAttribute.maxRandomNumber;
+                            intNum = intNum + add;
+                            rollAdd = "/p " + " 由于玩家职业为" + playerJob +  "," + textToSay.threasholdType + "属性加成为" + add + "，最后结果为:" + intNum;
+                        }
+                        else if (textToSay.threasholdType == playerAtt.negativeAttribute.name)
+                        {
+                            var sub = playerAtt.negativeAttribute.maxRandomNumber;
+                            intNum = intNum - sub;
+                            rollAdd = "/p " + " 由于玩家职业为" + playerJob + "," + textToSay.threasholdType + "属性加成为-" + sub + "，最后结果为:" + intNum;
+                        } else
+                        {
+                            rollAdd = "/p " + " 由于玩家职业为" + playerJob + "," + textToSay.threasholdType + "属性加成为0，"  + "最后结果为:" + intNum;
+                        }
+                    }
+                    PluginLog.Information("the rollAdd is " + rollAdd);
+
                     if (intNum >= textToSay.thresholdValue)
                     {
                         threadParams.playerState = textToSay.successJump;
@@ -179,18 +204,49 @@ namespace RandomTalkPlugin.CommandTracker
                     }
                     threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, threadParams.playerState);
                     var wait2 = new Utf8String(TalkSeq);
+                    var addRes = new Utf8String(rollAdd);
                     RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 0, &wait2);
                     RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 1, &uf8Res);
+                    if (rollAdd != "")
+                    {
+                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 2, &addRes);
+                    }
+
                     RaptureShellModule.Instance()->ExecuteMacro(macroRandomDice);
-                    Thread.Sleep(1000);
+                    Thread.Sleep(5500);
                     Thread thread = new Thread(new ParameterizedThreadStart(TalkToPlayer));
-                    thread.Start(new TalkToPlayerThreadParameters(threadParams.playerName, threadParams.playerState, new SeString { }, threadParams.RandomCommandSaver));
+                    thread.Start(new TalkToPlayerThreadParameters(threadParams.playerName, threadParams.playerState, new SeString { }, threadParams.RandomCommandSaver, threadParams.ChatGui));
                 }
                 
             }finally { RandomDicelock.ReleaseMutex();}
-            
+
+
             
 
+        }
+        private (TalkToPlayerThreadParameters, bool) SetChoiceRes(TextToSay textToSay, TalkToPlayerThreadParameters threadParams, string playerState)
+        {
+            PluginLog.Information("the threasholdType is"+ textToSay.threasholdType);
+            if (textToSay.threasholdType != ChoiceType)
+            {
+                return (threadParams, false);
+            }
+            
+            if (threadParams.message.TextValue.Contains(textToSay.choice1Jump))
+            {
+                threadParams.playerState = textToSay.choice1Jump;
+                threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, textToSay.choice1Jump);
+                return (threadParams, true);
+            }
+            if (threadParams.message.TextValue.Contains(textToSay.choice2Jump))
+            {
+                threadParams.playerState = textToSay.choice2Jump;
+                threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, textToSay.choice2Jump);
+                return (threadParams, true);
+            }
+            threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, playerState);
+            return (threadParams, false);
+            
         }
 
     }
