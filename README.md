@@ -12,7 +12,7 @@ Simple function can make your player talk like NPC , using by preset logic. Cust
 
 ## How To Use
 1. install the plugin, use a location that your Dalmud can scan it
-2. After scan you can use "/randomtal"open the consle of this plugin
+2. After scan you can use "/randomtalk"open the consle of this plugin
 3. Load the character file before your start use the plugin, put the character json file into the plugin config, usually the path is \XIVLauncherCN\Roaming\pluginConfigs\RandomTalkPlugin, if not exist just create it, the character file you can finded it in the \Data folder.
 4. Load the json using the plugin consle, by input the file name without file suffix, for example, input the "SampleRandomTalk" and click the "导入角色" button.
 5. select the correct sence and enable the plugin
