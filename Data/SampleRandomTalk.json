@@ -12,7 +12,7 @@
                 },
                 "1": {
                     "text": "既然你都已经来了，让我来试试你的身手（力量检定，请选择掷骰子）",
-                    "threasholdTType": "Power",
+                    "threasholdTType": "力量",
                     "thresholdValue": 5,
                     "successJump": "身手不错",
                     "failedJump": "身手垃圾"
@@ -43,7 +43,7 @@
                 },
                 "1": {
                     "text": "这里有两个地方可以去，左边和右边，你选哪边",
-                    "threasholdTType": "Choice",
+                    "threasholdType": "选择",
                     "choice1Jump": "左边",
                     "choice2Jump": "右边"
                 },

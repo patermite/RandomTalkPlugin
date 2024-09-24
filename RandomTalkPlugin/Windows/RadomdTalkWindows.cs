@@ -1,9 +1,6 @@
 using System;
 using System.Numerics;
-using Dalamud.Interface.Windowing;
-using Dalamud.Plugin.Services;
 using ImGuiNET;
-using RandomTalkPlugin.CommandTracker;
 
 namespace RandomTalkPlugin.Windows;
 

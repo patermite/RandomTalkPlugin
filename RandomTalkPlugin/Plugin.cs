@@ -7,19 +7,13 @@ using Dalamud.Plugin.Services;
 using RandomTalkPlugin.Windows;
 using RandomTalkPlugin.CommandTracker;
 using RandomTalkPlugin.Lottery;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Dalamud.Logging;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Hooking;
 using System;
 using System.Threading;
 using System.Runtime.InteropServices;
-using static System.Net.Mime.MediaTypeNames;
-using Dalamud.Plugin.Ipc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
-using FFXIVClientStructs.FFXIV.Client.UI.Misc;
-using FFXIVClientStructs.FFXIV.Client.Game;
 
 
 namespace RandomTalkPlugin

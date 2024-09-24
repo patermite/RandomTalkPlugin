@@ -1,16 +1,9 @@
 using Dalamud.Game.ClientState.Objects;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using System.Collections.Generic;
 using Dalamud.Plugin;
-using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Game.ClientState.Objects.Enums;
-using Dalamud.Plugin.Ipc;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Logging;
 using System.IO;
 using Newtonsoft.Json;

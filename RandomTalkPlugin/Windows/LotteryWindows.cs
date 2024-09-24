@@ -1,8 +1,6 @@
 
 using ImGuiNET;
-using System;
 using System.Numerics;
-using Dalamud.Interface.Windowing;
 
 
 namespace RandomTalkPlugin.Windows

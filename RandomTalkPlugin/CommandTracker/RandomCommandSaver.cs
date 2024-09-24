@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using Dalamud.Logging;
 using Dalamud.Plugin;
-using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using Newtonsoft.Json;
 
 

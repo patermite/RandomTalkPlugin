@@ -1,19 +1,12 @@
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Logging;
-using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
-using FFXIVClientStructs.Interop;
-using Lumina.Excel.GeneratedSheets;
-using Lumina.Excel.GeneratedSheets2;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Mail;
 using System.Threading;
-using static FFXIVClientStructs.FFXIV.Client.Game.UI.MapMarkerContainer;
 using static FFXIVClientStructs.FFXIV.Client.UI.Misc.RaptureMacroModule;
 
 namespace RandomTalkPlugin.CommandTracker
