@@ -21,7 +21,7 @@ Simple function can make your player talk like NPC , using by preset logic. Cust
 Thie chapter just show the logic of json file, you can see the table below, you can customize your own NPC by write the json file.
 
 | Fields      | Description |
-| :---        |  ----:      |
+| :---        |  :----:     |
 | character   | Character name can display in every beginning of the sentence.(String)|
 | scenename    | The scene name of a specific character.(String)|
 | texttosay    | A dictionary containing text that needs to be said for a specific scene and a specific character(String)|
