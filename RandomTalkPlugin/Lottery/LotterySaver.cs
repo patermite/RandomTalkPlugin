@@ -15,12 +15,13 @@ namespace RandomTalkPlugin.Lottery
         private Dictionary<(string, string),  string> giftDestinationDict = new Dictionary<(string, string), string> { };
         private string savePath = "";
         private string giftFileName = "GiftList";
-        public void Init (DalamudPluginInterface pluginInterface)
+        public IPluginLog PluginLog { get; init; }
+        public void Init (IDalamudPluginInterface pluginInterface)
         {
             savePath = pluginInterface.ConfigDirectory.FullName;
         }
 
-        public void LoadPlayerGift(DalamudPluginInterface pluginInterface)
+        public void LoadPlayerGift(IDalamudPluginInterface pluginInterface)
         {
             if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + giftFileName + ".json")) return;
             string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, giftFileName + ".json"));

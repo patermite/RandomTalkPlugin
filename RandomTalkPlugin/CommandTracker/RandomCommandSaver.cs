@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Dalamud.Logging;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Newtonsoft.Json;
 
 
@@ -14,7 +15,8 @@ namespace RandomTalkPlugin.CommandTracker
         private Dictionary<string, string> playerStates = new Dictionary<string, string> { };
         public string CurrentSence = "场景一";
         public string CharacterName = "SampleRandomTalk";
-        public void LoadCharacterDialogue(DalamudPluginInterface pluginInterface)
+        public IPluginLog PluginLog { get; init; }
+        public void LoadCharacterDialogue(IDalamudPluginInterface pluginInterface)
         {
             if (CharacterName == "") { return; }
             PluginLog.Information("the path is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName+".json");

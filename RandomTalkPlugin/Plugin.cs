@@ -1,19 +1,15 @@
 using Dalamud.Game.Command;
 using Dalamud.IoC;
 using Dalamud.Plugin;
-using System.IO;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin.Services;
 using RandomTalkPlugin.Windows;
 using RandomTalkPlugin.CommandTracker;
 using RandomTalkPlugin.Lottery;
-using Dalamud.Logging;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using System;
 using System.Threading;
-using System.Runtime.InteropServices;
-using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 
 
 namespace RandomTalkPlugin
@@ -21,7 +17,7 @@ namespace RandomTalkPlugin
     public unsafe class RandomTalkPlugin : IDalamudPlugin
     {
         [PluginService] 
-        public static DalamudPluginInterface PluginInterface { get; set; } = null!;
+        public static IDalamudPluginInterface PluginInterface { get; set; } = null!;
         [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
         public ICommandManager CommandManager { get; init; }
         public static RandomTalkPlugin Instance;
@@ -36,6 +32,7 @@ namespace RandomTalkPlugin
         public bool StartCharacterTalkSwitch = false;
         public Configuration Configuration { get; init; }
         public IChatGui ChatGui { get; init; }
+        public IPluginLog PluginLog { get; init; }
 
         public readonly WindowSystem WindowSystem = new("RandomTalkPlugin");
         private LotteryWindows LotteryWindows { get; init; }
@@ -46,9 +43,6 @@ namespace RandomTalkPlugin
         public LotterydSaver LotterySaver { get; init; }
         public PluginUI PluginUI { get; init; }
         public PlayerAttribute PlayerAttributes { get; init; }
-        [UnmanagedFunctionPointer(CallingConvention.ThisCall)]
-        private delegate IntPtr ParseMessageDelegate(IntPtr a, IntPtr b);
-        private delegate void MacroCallDelegate(RaptureShellModule* raptureShellModule, RaptureMacroModule.Macro* macro);
         public enum RollChatTypes : ushort
         {
             // Random
@@ -62,9 +56,6 @@ namespace RandomTalkPlugin
             this.ChatGui = chatGui;
             this.CommandManager = commandManager;
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-
-            // you might normally want to embed resources and load them from the manifest stream
-            var goatImagePath = Path.Combine(PluginInterface.AssemblyLocation.Directory?.FullName!, "goat.png");
 
             CommandTracker = new RadomCommandHelper();
             LotteryHelper = new LotterydHelper();
@@ -185,7 +176,7 @@ namespace RandomTalkPlugin
             this.PluginUI.RandomTalkWindow.Visible = true;
         }
 
-        public void Chat_OnRandomDiceMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        public void Chat_OnRandomDiceMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             var xivChatType = (ushort)type;
             var channel = xivChatType & 0x7F;
@@ -203,7 +194,7 @@ namespace RandomTalkPlugin
 
         }
 
-        public void Chat_OnFreeCompanyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        public void Chat_OnFreeCompanyMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             PluginLog.Information("the text is " + message.TextValue + " the payload is " + message.Payloads);
             if (type != XivChatType.FreeCompany) return;
@@ -216,12 +207,11 @@ namespace RandomTalkPlugin
                 PluginLog.Error("The Number can't not parse to int: {0}", number);
                 return;
             }
-            PluginLog.Information("name is: {0}, number is {1}, senderId is {2} ", name, number, senderId.ToString());
             Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkInLotteryRes));
             thread.Start(new LotteryThreadParameters(intNum, name, number, LotterySaver));
         }
 
-        public void Chat_OnPartyMessage(XivChatType type, uint senderId, ref SeString sender, ref SeString message, ref bool isHandled)
+        public void Chat_OnPartyMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
         {
             if (type != XivChatType.Party) return;
             if (!message.TextValue.Contains("[跑团]")) return;
@@ -241,7 +231,7 @@ namespace RandomTalkPlugin
 
 
         public RandomCommandSaver GetRandomCommandSaver() { return RandomCommandSaver; }
-        public DalamudPluginInterface GetInterface() { return PluginInterface; }
+        public IDalamudPluginInterface GetInterface() { return PluginInterface; }
 
     }
 }

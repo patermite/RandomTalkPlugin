@@ -1,5 +1,6 @@
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Logging;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
@@ -24,6 +25,7 @@ namespace RandomTalkPlugin.CommandTracker
         public unsafe Macro* macroRandomDice = RaptureMacroModule.Instance()->GetMacro(1, 2);
         public unsafe Macro* macroRandomTalk = RaptureMacroModule.Instance()->GetMacro(1, 1);
         public string ServerName = "萌芽池";
+        public IPluginLog PluginLog { get; init; }
         private RadomCommandHelper helper = new RadomCommandHelper();
 
         public unsafe void TalkInLotteryRes(object parameters)

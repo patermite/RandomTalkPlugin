@@ -20,6 +20,7 @@ namespace RandomTalkPlugin.CommandTracker
         public static ITargetManager TargetManager {  get; set; } = null!;
         public static TargetSystem targetSystem { get; set; }
         public string jobFileName = "PlayerJob";
+        public IPluginLog PluginLog { get; init; }
         public static Dictionary<string, JobAttributes> JobAttribute = new Dictionary<string, JobAttributes>
         {
             { "战士", new JobAttributes
@@ -42,7 +43,7 @@ namespace RandomTalkPlugin.CommandTracker
             }
         };
 
-        public void LoadPlayerJob(DalamudPluginInterface pluginInterface)
+        public void LoadPlayerJob(IDalamudPluginInterface pluginInterface)
         {
             PluginLog.Information("the path of player job is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + jobFileName + ".json");
             if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + jobFileName + ".json")) return;
