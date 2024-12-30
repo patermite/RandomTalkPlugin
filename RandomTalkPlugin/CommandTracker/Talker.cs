@@ -1,6 +1,5 @@
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Logging;
-using Dalamud.Plugin.Services;
+using Dalamud.Logging.Internal;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
@@ -25,7 +24,12 @@ namespace RandomTalkPlugin.CommandTracker
         public unsafe Macro* macroRandomDice = RaptureMacroModule.Instance()->GetMacro(1, 2);
         public unsafe Macro* macroRandomTalk = RaptureMacroModule.Instance()->GetMacro(1, 1);
         public string ServerName = "萌芽池";
-        public IPluginLog PluginLog { get; init; }
+        public string quenePlayerWord = "加入等待队列成功";
+        public string mlock = "/mlock";
+        public string endTalk = "/p 本段剧情已结束，可以回顾下剧情寻找下一个地点吧<wait.2>";
+        public string tradeToPlayer = "/trade";
+        public string kickPlayer = "/kick <2>";
+        public ModuleLog moduleLog { get; set; }
         private RadomCommandHelper helper = new RadomCommandHelper();
 
         public unsafe void TalkInLotteryRes(object parameters)
@@ -48,11 +52,12 @@ namespace RandomTalkPlugin.CommandTracker
                     talkStr2 = "/fc " + threadParams.name + "选择的是" + threadParams.number + "号，他抽中来自" + giftSender + "的礼物：" + giftName + "！剩余号码为" +
                         string.Join(" ", Array.ConvertAll(numberArray, x => x.ToString()));
                 }
-
+                var mlockUtf8 = new Utf8String(mlock);
                 var line1 = new Utf8String(TalkSeq);
                 var line2 = new Utf8String(talkStr2);
-                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 0, &line1);
-                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 1, &line2);
+                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 0, &mlockUtf8);
+                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 1, &line1);
+                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 2, &line2);
                 RaptureShellModule.Instance()->ExecuteMacro(macroLottery);
                 Thread.Sleep(3000);
             }
@@ -72,7 +77,7 @@ namespace RandomTalkPlugin.CommandTracker
                     var (textToSay, ok) = threadParams.RandomCommandSaver.GetTextToSayFromCharacterDialogue(threadParams.playerState);
                     if (!ok)
                     {
-                        PluginLog.Information("end loop");
+                        moduleLog.Information("end loop");
                         return;
                     }
                     if (textToSay.condition != null)
@@ -84,7 +89,6 @@ namespace RandomTalkPlugin.CommandTracker
                     }
 
                     (threadParams, ok) = SetChoiceRes(textToSay, threadParams, threadParams.playerState);
-                    PluginLog.Information("the ok is" + ok);
                     if (ok) { continue; }
 
                     var lineList = new List<string>();
@@ -92,7 +96,7 @@ namespace RandomTalkPlugin.CommandTracker
                     {
                         if (t.Length > 60)
                         {
-                            PluginLog.Error("对应文本一行超过60字符,请检查，场景为：{0}，玩家状态为：{1}", threadParams.RandomCommandSaver.CurrentSence, threadParams.playerState);
+                            moduleLog.Error("对应文本一行超过60字符,请检查，场景为：{0}，玩家状态为：{1}", threadParams.RandomCommandSaver.CurrentSence, threadParams.playerState);
                             return;
                         }
                         var character = threadParams.RandomCommandSaver.GetCharacterName();
@@ -104,9 +108,9 @@ namespace RandomTalkPlugin.CommandTracker
                         }
                         lineList.Add("/p " + " [" + character + "]" + t + vocie + " <wait.4>");
                     }
-                    if (lineList.Count > 13)
+                    if (lineList.Count > 12)
                     {
-                        PluginLog.Error("对应文本总行数超过15行，文本行数不应该超过7行,请检查，场景为：{0}，玩家状态为：{1}", threadParams.RandomCommandSaver.CurrentSence, threadParams.playerState);
+                        moduleLog.Error("对应文本总行数超过15行，文本行数不应该超过7行,请检查，场景为：{0}，玩家状态为：{1}", threadParams.RandomCommandSaver.CurrentSence, threadParams.playerState);
                         return;
                     }
 
@@ -115,19 +119,24 @@ namespace RandomTalkPlugin.CommandTracker
                         textToSay.emotion = "说话";
                     }
                     var target = new Utf8String(TargetToPlayer);
-                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 0, &target);
-                    var emotion = new Utf8String("/" + textToSay.emotion + "<wait.2>");
-                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 1, &emotion);
+                    var mlockUtf8 = new Utf8String(mlock);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 0, &mlockUtf8);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 1, &target);
+                    var emotion = new Utf8String("/" + textToSay.emotion);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 2, &emotion);
                     for (var i = 0; i < lineList.Count; i++)
                     {
                         var value = new Utf8String(lineList.ElementAt(i));
-                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, i+2, &value);
+                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, i+3, &value);
 
                     }
                     RaptureShellModule.Instance()->ExecuteMacro(macroRandomTalk);
                     Thread.Sleep(textToSay.text.Split("\n").Count() * 4100);
 
-
+                    if (textToSay.end) 
+                    {
+                        EndOperation(textToSay);
+                    }
                     if (textToSay.successJump == null || textToSay.threasholdType != null || textToSay.thresholdValue != 0)
                     {
                         break;
@@ -139,6 +148,21 @@ namespace RandomTalkPlugin.CommandTracker
             {
                 RandomTalklock.ReleaseMutex();
             }
+
+        }
+
+        private unsafe void EndOperation(TextToSay textToSay)
+        {
+            var endTalkUtf8 = new Utf8String(endTalk);
+            var tradeUtf8 = new Utf8String(tradeToPlayer);
+            var target = new Utf8String(TargetToPlayer);
+            RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 0, &target);
+            if (textToSay.giftName != null) {
+                RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 1, &tradeUtf8);
+            }
+            RaptureMacroModule.Instance()->SetMacroLines(macroRandomTalk, 2, &endTalkUtf8);
+            RaptureShellModule.Instance()->ExecuteMacro(macroRandomTalk);
+
 
         }
 
@@ -187,7 +211,7 @@ namespace RandomTalkPlugin.CommandTracker
                             rollAdd = "/p " + " 由于玩家职业为" + playerJob + "," + textToSay.threasholdType + "属性加成为0，"  + "最后结果为:" + intNum;
                         }
                     }
-                    PluginLog.Information("the rollAdd is " + rollAdd);
+                    moduleLog.Information("the rollAdd is " + rollAdd);
 
                     if (intNum >= textToSay.thresholdValue)
                     {
@@ -200,11 +224,13 @@ namespace RandomTalkPlugin.CommandTracker
                     threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, threadParams.playerState);
                     var wait2 = new Utf8String(TalkSeq);
                     var addRes = new Utf8String(rollAdd);
-                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 0, &wait2);
-                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 1, &uf8Res);
+                    var mlockUtf8 = new Utf8String(mlock);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 0, &mlockUtf8);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 1, &wait2);
+                    RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 2, &uf8Res);
                     if (rollAdd != "")
                     {
-                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 2, &addRes);
+                        RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 3, &addRes);
                     }
 
                     RaptureShellModule.Instance()->ExecuteMacro(macroRandomDice);
@@ -221,7 +247,6 @@ namespace RandomTalkPlugin.CommandTracker
         }
         private (TalkToPlayerThreadParameters, bool) SetChoiceRes(TextToSay textToSay, TalkToPlayerThreadParameters threadParams, string playerState)
         {
-            PluginLog.Information("the threasholdType is"+ textToSay.threasholdType);
             if (textToSay.threasholdType != ChoiceType)
             {
                 return (threadParams, false);
@@ -241,6 +266,27 @@ namespace RandomTalkPlugin.CommandTracker
             }
             threadParams.RandomCommandSaver.SetPlayerState(threadParams.playerName, playerState);
             return (threadParams, false);
+            
+        }
+
+        public unsafe void TalkToQuenePlayerInSayChannel(List<string> quenePlayer,string currentPlayer)
+        {
+            RandomDicelock.WaitOne();
+            RandomTalklock.WaitOne();
+            try 
+            { 
+                string res = "/s " + currentPlayer + quenePlayerWord + ", 当前队列为";
+                foreach (string p in quenePlayer) {
+                    res += p + " ";
+                }
+                res += " " + "请勿重复添加队列，请保证自己不在其他队伍中";
+                var resUtf8 = new Utf8String(res);
+                var mlockUtf8 = new Utf8String(mlock);
+                RaptureMacroModule.Instance()->SetMacroLines(macroLottery, 0, &mlockUtf8);
+                RaptureMacroModule.Instance()->SetMacroLines(macroRandomDice, 1, &resUtf8);
+                RaptureShellModule.Instance()->ExecuteMacro(macroRandomDice);
+            }
+            finally { RandomDicelock.ReleaseMutex(); RandomTalklock.ReleaseMutex(); }
             
         }
 

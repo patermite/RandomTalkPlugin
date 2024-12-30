@@ -1,9 +1,9 @@
 
 namespace RandomTalkPlugin.Windows
 {
-    public abstract class Window
+    public abstract class Windows
     {
-        public Window(RandomTalkPlugin plugin, PluginUI pluginUI)
+        public Windows(RandomTalkPlugin plugin, PluginUI pluginUI)
         {
             this.plugin = plugin;
             this.pluginUI = pluginUI;

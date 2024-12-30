@@ -4,7 +4,7 @@ using ImGuiNET;
 
 namespace RandomTalkPlugin.Windows;
 
-public class RandomTalkWindow : Window, IDisposable
+public class RandomTalkWindow : Windows, IDisposable
 {
     private Configuration Configuration;
     int clusterSize;
@@ -46,6 +46,7 @@ public class RandomTalkWindow : Window, IDisposable
                     if (!this.plugin.GetRandomCommandSaver().CheckCharacterDialogue()) return;
                     this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnPartyMessage;
                     this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnRandomDiceMessage;
+                    this.plugin.ChatGui.ChatMessage += this.plugin.Chat_OnSayMessageForInvite;
                     this.plugin.StartCharacterTalkSwitch = true;
                     this.plugin.ChatGui.Print("Start Character Talk set on sucess");
                 }
@@ -53,6 +54,7 @@ public class RandomTalkWindow : Window, IDisposable
                 {
                     this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnPartyMessage;
                     this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnRandomDiceMessage;
+                    this.plugin.ChatGui.ChatMessage -= this.plugin.Chat_OnSayMessageForInvite;
                     this.plugin.StartCharacterTalkSwitch = false;
                     this.plugin.ChatGui.Print("Start Character Talk set off sucess");
                 }

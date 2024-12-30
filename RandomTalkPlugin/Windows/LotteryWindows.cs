@@ -5,7 +5,7 @@ using System.Numerics;
 
 namespace RandomTalkPlugin.Windows
 {
-    public class LotteryWindows : Window
+    public class LotteryWindows : Windows
     {
         int clusterSize;
         string inputPlayerName = "玩家名字";

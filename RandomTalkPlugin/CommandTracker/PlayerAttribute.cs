@@ -4,9 +4,9 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using System.Collections.Generic;
 using Dalamud.Plugin;
-using Dalamud.Logging;
 using System.IO;
 using Newtonsoft.Json;
+using Dalamud.Logging.Internal;
 
 namespace RandomTalkPlugin.CommandTracker
 {
@@ -20,7 +20,7 @@ namespace RandomTalkPlugin.CommandTracker
         public static ITargetManager TargetManager {  get; set; } = null!;
         public static TargetSystem targetSystem { get; set; }
         public string jobFileName = "PlayerJob";
-        public IPluginLog PluginLog { get; init; }
+        public ModuleLog moduleLog { get; set; }
         public static Dictionary<string, JobAttributes> JobAttribute = new Dictionary<string, JobAttributes>
         {
             { "战士", new JobAttributes
@@ -45,13 +45,14 @@ namespace RandomTalkPlugin.CommandTracker
 
         public void LoadPlayerJob(IDalamudPluginInterface pluginInterface)
         {
-            PluginLog.Information("the path of player job is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + jobFileName + ".json");
+            //PluginLog.Information("the path of player job is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + jobFileName + ".json");
             if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + jobFileName + ".json")) return;
             string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, jobFileName + ".json"));
             if (content == null) return;
             playerJob = JsonConvert.DeserializeObject<Dictionary<string, string>>(content);
             return;
         }
+
 
         public static Dictionary<string, EquipInfo> EquipDict = new Dictionary<string, EquipInfo>
         {
@@ -126,10 +127,10 @@ namespace RandomTalkPlugin.CommandTracker
         {
             if (this.ClientState.LocalPlayer!.HomeWorld.GameData == null) {  return; }
             var world = this.ClientState.LocalPlayer!.HomeWorld.GameData.Name.RawString;
-            PluginLog.Information("the world name is :" + world);
+            moduleLog.Information("the world name is :" + world);
             var targetObject = this.ClientState.LocalPlayer!.TargetObject;
             if (targetObject == null) { return; }
-            PluginLog.Information("the target object:"+ targetObject.Name.TextValue);
+            moduleLog.Information("the target object:"+ targetObject.Name.TextValue);
         }
     }
 

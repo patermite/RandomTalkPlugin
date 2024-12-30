@@ -1,4 +1,3 @@
-using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Newtonsoft.Json;
@@ -7,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Dalamud.Logging.Internal;
 namespace RandomTalkPlugin.Lottery
 {
     public class LotterydSaver
@@ -15,7 +15,7 @@ namespace RandomTalkPlugin.Lottery
         private Dictionary<(string, string),  string> giftDestinationDict = new Dictionary<(string, string), string> { };
         private string savePath = "";
         private string giftFileName = "GiftList";
-        public IPluginLog PluginLog { get; init; }
+        public ModuleLog moduleLog { get; set; }
         public void Init (IDalamudPluginInterface pluginInterface)
         {
             savePath = pluginInterface.ConfigDirectory.FullName;
@@ -55,7 +55,7 @@ namespace RandomTalkPlugin.Lottery
 
             var shuffledNumbers = Enumerable.Range(1, giftDict.Count).OrderBy(x => Guid.NewGuid());
             var valueList = giftDict.Values.ToList();
-            PluginLog.Information("[setgift] {0} {1}", shuffledNumbers, valueList);
+            moduleLog.Information("[setgift] {0} {1}", shuffledNumbers, valueList);
             var tempDict = shuffledNumbers.Zip(valueList, (key, value) => new { key, value })
                                           .ToDictionary(item => item.key, item => item.value);
             giftDict = tempDict;

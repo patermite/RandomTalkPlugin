@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Dalamud.Logging;
+using Dalamud.Logging.Internal;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Newtonsoft.Json;
@@ -15,11 +15,11 @@ namespace RandomTalkPlugin.CommandTracker
         private Dictionary<string, string> playerStates = new Dictionary<string, string> { };
         public string CurrentSence = "场景一";
         public string CharacterName = "SampleRandomTalk";
-        public IPluginLog PluginLog { get; init; }
+        public ModuleLog moduleLog { get; set; }
         public void LoadCharacterDialogue(IDalamudPluginInterface pluginInterface)
         {
             if (CharacterName == "") { return; }
-            PluginLog.Information("the path is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName+".json");
+            //PluginLog.Information("the path is:" + pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName+".json");
             if (!File.Exists(pluginInterface.ConfigDirectory.FullName + $"\\" + CharacterName + ".json")) return;
             string content = File.ReadAllText(Path.Join(pluginInterface.ConfigDirectory.FullName, CharacterName+".json"));
             CharacterDialogue = JsonConvert.DeserializeObject<CharacterDialogue>(content);
@@ -52,7 +52,7 @@ namespace RandomTalkPlugin.CommandTracker
                     }
                 }
             }
-            catch (NullReferenceException ex) { PluginLog.Error("Error: " + ex.Message); };
+            catch (NullReferenceException ex) { moduleLog.Error("Error: " + ex.Message); };
 
             return (new TextToSay { }, false);
         }
@@ -79,9 +79,9 @@ namespace RandomTalkPlugin.CommandTracker
 
         public bool CheckCharacterDialogue()
         {
-            if (CharacterDialogue.character == null) { PluginLog.Error("check character failed"); return false; }
+            if (CharacterDialogue.character == null) { moduleLog.Error("check character failed"); return false; }
 
-            if (CharacterDialogue.dialogue == null) { PluginLog.Error("check dialogue failed"); return false; }
+            if (CharacterDialogue.dialogue == null) { moduleLog.Error("check dialogue failed"); return false; }
             return true;
 
         }

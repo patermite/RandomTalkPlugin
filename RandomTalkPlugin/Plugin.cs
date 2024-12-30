@@ -8,8 +8,11 @@ using RandomTalkPlugin.CommandTracker;
 using RandomTalkPlugin.Lottery;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Logging.Internal;
 using System;
 using System.Threading;
+using System.Linq;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 
 
 namespace RandomTalkPlugin
@@ -32,7 +35,7 @@ namespace RandomTalkPlugin
         public bool StartCharacterTalkSwitch = false;
         public Configuration Configuration { get; init; }
         public IChatGui ChatGui { get; init; }
-        public IPluginLog PluginLog { get; init; }
+        public ModuleLog moduleLog { get; set; }
 
         public readonly WindowSystem WindowSystem = new("RandomTalkPlugin");
         private LotteryWindows LotteryWindows { get; init; }
@@ -43,6 +46,7 @@ namespace RandomTalkPlugin
         public LotterydSaver LotterySaver { get; init; }
         public PluginUI PluginUI { get; init; }
         public PlayerAttribute PlayerAttributes { get; init; }
+        public Inviter inviter { get; init; }
         public enum RollChatTypes : ushort
         {
             // Random
@@ -56,13 +60,15 @@ namespace RandomTalkPlugin
             this.ChatGui = chatGui;
             this.CommandManager = commandManager;
             Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
-
             CommandTracker = new RadomCommandHelper();
             LotteryHelper = new LotterydHelper();
             LotterySaver = new LotterydSaver();
+            moduleLog = new ModuleLog("RandomTalkPlugin");
             RandomCommandSaver = new RandomCommandSaver();
             PlayerAttributes = new PlayerAttribute();
+            inviter = new Inviter();
             LotterySaver.Init(PluginInterface);
+            inviter.Init();
             RandomCommandSaver.LoadCharacterDialogue(PluginInterface);
             RandomCommandSaver.CheckCharacterDialogue();
             PlayerAttributes.LoadPlayerJob(PluginInterface);
@@ -112,6 +118,7 @@ namespace RandomTalkPlugin
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
             this.ChatGui.ChatMessage -= Chat_OnFreeCompanyMessage;
             this.ChatGui.ChatMessage -= Chat_OnPartyMessage;
+            this.ChatGui.ChatMessage -= Chat_OnSayMessageForInvite;
         }
 
         private void OnRandomTalkCommand(string command, string args)
@@ -146,6 +153,7 @@ namespace RandomTalkPlugin
             if (!RandomCommandSaver.CheckCharacterDialogue()) return;
             this.ChatGui.ChatMessage += Chat_OnPartyMessage;
             this.ChatGui.ChatMessage += Chat_OnRandomDiceMessage;
+            this.ChatGui.ChatMessage += Chat_OnSayMessageForInvite;
             StartCharacterTalkSwitch = true;
             ChatGui.Print("Start Character Talk set on sucess");
         }
@@ -155,6 +163,7 @@ namespace RandomTalkPlugin
             if (!StartCharacterTalkSwitch) return;
             this.ChatGui.ChatMessage -= Chat_OnPartyMessage;
             this.ChatGui.ChatMessage -= Chat_OnRandomDiceMessage;
+            this.ChatGui.ChatMessage -= Chat_OnSayMessageForInvite;
             StartCharacterTalkSwitch = false;
             ChatGui.Print("Start Character Talk set off sucess");
         }
@@ -187,7 +196,7 @@ namespace RandomTalkPlugin
             {
                 playerState = "0";
             }
-            PluginLog.Information("[RandomDice] name is: {0}, state is {1}, number is {2} ", name, playerState, number);
+            moduleLog.Information("[RandomDice] name is: {0}, state is {1}, number is {2} ", name, playerState, number);
 
             Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkToPlayerRandomCommand));
             thread.Start(new RandomDiceThreadParameters(name, playerState, number, RandomCommandSaver, PlayerAttributes, ChatGui));
@@ -196,7 +205,6 @@ namespace RandomTalkPlugin
 
         public void Chat_OnFreeCompanyMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
         {
-            PluginLog.Information("the text is " + message.TextValue + " the payload is " + message.Payloads);
             if (type != XivChatType.FreeCompany) return;
             var name = sender.TextValue;;
             var number = LotteryHelper.GetLotteryNumberRes(message);
@@ -204,11 +212,26 @@ namespace RandomTalkPlugin
             int intNum;
             bool success = int.TryParse(number, out intNum);
             if (!success) {
-                PluginLog.Error("The Number can't not parse to int: {0}", number);
+                moduleLog.Error("The Number can't not parse to int: {0}", number);
                 return;
             }
             Thread thread = new Thread(new ParameterizedThreadStart(Talker.TalkInLotteryRes));
             thread.Start(new LotteryThreadParameters(intNum, name, number, LotterySaver));
+        }
+
+        public void Chat_OnSayMessageForInvite(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+        {   
+            if (type != XivChatType.Say) return;
+            moduleLog.Information("process to quene");
+            var playerJob = PlayerAttributes.GetPlayerJob(sender.TextValue);
+            if (playerJob == "") { return;}
+            var senderPayload = sender.Payloads.Where(payload => payload is PlayerPayload).FirstOrDefault();
+            if (senderPayload == null) { return; }
+            if (senderPayload != default(Payload) && senderPayload is PlayerPayload playerPayload) { 
+                inviter.QueneInvite(playerPayload, Talker);
+            }
+           
+          
         }
 
         public void Chat_OnPartyMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
@@ -220,7 +243,7 @@ namespace RandomTalkPlugin
                 senderName = sender.TextValue.Remove(0,1);
             }
             var playerState = RandomCommandSaver.GetPlayerState(senderName);
-            PluginLog.Information("Playstate is: {0}, sender is {1}",playerState, senderName);
+            moduleLog.Information("Playstate is: {0}, sender is {1}",playerState, senderName);
             
             if (playerState == "") {
                 playerState = "0";
